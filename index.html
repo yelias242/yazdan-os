@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#06070A">
+<meta name="description" content="A practice trading desk for gold and Bitcoin: live signals from a strategy tested over 5 years, TradingView charts and a full record.">
+<title>Trading Desk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script>try { const t = localStorage.getItem('v2_theme'); document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark'; } catch (e) { document.documentElement.dataset.theme = 'dark'; }</script>
+</head>
+<body>
+<div class="ambient" aria-hidden="true"><i></i><i></i><i></i></div>
+<div class="gridbg" aria-hidden="true"></div>
+
+<header class="top">
+  <a class="brand" href="#home" aria-label="Trading Desk home">
+    <span class="mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="18" height="18"><path d="M3 15 L8 9 L11 12 L17 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+    <span class="word">Trading Desk</span>
+    <span class="tag" data-tone="grey">Demo</span>
+  </a>
+  <nav class="tabs" aria-label="Sections">
+    <a href="#home" data-tab="home">Home</a>
+    <a href="#gold" data-tab="gold">Gold</a>
+    <a href="#btc" data-tab="btc">Bitcoin</a>
+    <a href="#bots" data-tab="bots">Auto-trader</a>
+    <a href="#learn" data-tab="learn">Learn</a>
+    <a href="#plan" data-tab="plan">Plan &amp; Record</a>
+    <span class="ink" aria-hidden="true"></span>
+  </nav>
+  <button type="button" class="btn scanbtn" data-scan aria-label="Scan the charts"><span class="radar" aria-hidden="true"></span><span class="scanlbl">Scan charts</span></button>
+  <div class="clock"><span class="dot" id="netDot" aria-hidden="true"></span><span id="clock">--</span></div>
+</header>
+
+<main>
+  <!-- ===================== MARKET VIEW (gold / btc share this template) ===================== -->
+  <template id="marketTpl">
+    <section class="view market">
+      <div class="mstrip card reveal">
+        <img class="mart" data-f="obj" alt="" aria-hidden="true" hidden>
+        <div class="mname"><span class="eyebrow" data-f="name"></span><b class="mono" data-f="sym"></b></div>
+        <div class="mprice"><span class="price"><span data-f="price">--</span></span><span class="chg mono" data-f="chg"></span></div>
+        <div class="meta mono" data-f="fresh">Loading live candles…</div>
+        <span class="tag" data-f="badge" data-tone="grey">Loading</span>
+      </div>
+
+      <div class="terminal">
+        <div class="tcol">
+        <div class="card ws reveal" data-f="ws">
+          <div class="ws-top">
+            <div class="ws-legend mono" data-ws="legend"></div>
+            <div class="ws-ctrls">
+              <button type="button" class="btn analyze" data-f="analyze" title="Read this chart, draw the levels and pick the best strategy for right now"><span class="an-ico" aria-hidden="true"><svg viewBox="0 0 20 20" width="16" height="16"><path d="M3 15l4-5 3 3 6-8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 3.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" fill="currentColor"/></svg></span><span class="an-lbl">Analyze</span></button>
+              <div class="seg" role="group" aria-label="Candle size" data-f="tfs">
+                <button type="button" data-tf="900">15m</button><button type="button" data-tf="3600" aria-pressed="true">1h</button><button type="button" data-tf="14400">4h</button><button type="button" data-tf="86400">1D</button>
+              </div>
+              <div class="seg modes" role="group" aria-label="Chart layout" data-f="modes">
+                <span class="mode-ink" aria-hidden="true"></span>
+                <button type="button" data-mode="marked">Marked</button><button type="button" data-mode="split">Split</button><button type="button" data-mode="tv">TradingView</button>
+              </div>
+            </div>
+          </div>
+          <div class="ws-body">
+            <div class="ws-tools" data-ws="tools" role="toolbar" aria-label="Drawing tools"></div>
+            <div class="ws-panes" data-f="panes" data-mode="split">
+              <div class="pane pane-desk">
+                <span class="pane-tag"><i class="dot live"></i>Marked chart · TradingView engine</span>
+                <div class="an-chip" data-f="anChip" hidden><span class="eyebrow">Analysis</span><b></b><button type="button" class="linkbtn" data-act="clear" aria-label="Clear the analysis drawings">Clear</button></div>
+                <div class="chart" data-ws="chart"></div>
+                <div class="ws-hint" data-ws="hint"></div>
+              </div>
+              <div class="pane pane-tv">
+                <div class="tv" data-f="tv"><div class="tvwait"><span class="spinner" aria-hidden="true"></span>Loading TradingView…</div></div>
+                <div class="tv-levels" data-f="tvLevels" hidden></div>
+              </div>
+            </div>
+          </div>
+          <div class="ws-layers" data-ws="layers">
+            <button type="button" class="chipbtn" data-layer="signals"><i style="--c:var(--up)"></i>Buy / sell</button>
+            <button type="button" class="chipbtn" data-layer="zones"><i style="--c:var(--down)"></i>Trade zones</button>
+            <button type="button" class="chipbtn" data-layer="levels"><i style="--c:var(--gold)"></i>Breakout levels</button>
+            <button type="button" class="chipbtn" data-layer="ranges"><i style="--c:var(--amber)"></i>Ranges</button>
+            <button type="button" class="chipbtn" data-layer="volume"><i style="--c:var(--muted)"></i>Volume</button>
+            <span class="tag" data-ws="range" hidden></span>
+          </div>
+          <p class="foot" data-f="chartNote"></p>
+        </div>
+
+        <div class="card report" data-f="report" hidden aria-live="polite"></div>
+
+        <div class="card book reveal">
+          <div class="cardhead"><h2>Your demo trades</h2><span class="mono small" data-f="acct"></span><button type="button" class="btn ghost" data-f="reset">Reset to $10,000</button></div>
+          <div class="tablewrap"><table class="log" data-f="openTbl"></table></div>
+          <h3 class="subhead">Closed</h3>
+          <div class="tablewrap"><table class="log" data-f="histTbl"></table></div>
+        </div>
+        </div>
+
+        <div class="side">
+        <div class="card trade reveal" data-f="trade">
+          <div class="cardhead"><h2>Place a demo trade</h2><button type="button" class="tag tagbtn" data-f="autoTag" data-tone="grey" title="Autopilot settings">Autopilot off</button></div>
+          <div class="callrow"><span class="muted small">The strategy says</span><span class="tag" data-f="callTag" data-tone="grey">-</span><button type="button" class="linkbtn" data-f="useSetup" hidden>Use its levels</button></div>
+          <div class="sidesw" role="group" aria-label="Buy or sell">
+            <button type="button" data-side="1" aria-pressed="true">Buy</button><button type="button" data-side="-1" aria-pressed="false">Sell</button>
+          </div>
+          <div class="tfields">
+            <label><span>Size (<span data-f="unit">lots</span>)</span><input type="number" inputmode="decimal" step="0.01" min="0" data-f="qty"></label>
+            <label><span>Stop loss</span><input type="number" inputmode="decimal" step="0.01" data-f="sl"></label>
+            <label><span>Take profit (optional)</span><input type="number" inputmode="decimal" step="0.01" data-f="tp"></label>
+          </div>
+          <label class="row trailrow" data-f="trailRow"><input type="checkbox" data-f="trail"> Trail the stop like the Quiet Breakout (3 × ATR, moves on each 1-hour close)</label>
+          <div class="riskline small" data-f="riskLine"></div>
+          <div class="tbtns"><button type="button" class="btn ghost" data-f="size1">Size for 1% risk</button><button type="button" class="btn ghost" data-f="autoStop">Stop at 3 × ATR</button></div>
+          <button type="button" class="btn place" data-f="place" data-side="1">Buy</button>
+          <p class="small muted tnote" data-f="tmsg">Fills at the live price. This is practice money and isn't connected to any broker.</p>
+        </div>
+
+        <aside class="card panel reveal">
+          <div class="panel-head"><span class="eyebrow">Right now</span><span class="tag" data-f="stratTag" data-tone="grey"></span></div>
+          <div class="status">
+            <h1 data-f="word">Loading</h1>
+            <p data-f="why">Getting the last 130 days of candles so the strategy can run.</p>
+          </div>
+          <div class="ticket" data-f="ticket" hidden>
+            <div><span>Entry</span><b data-f="tEntry">-</b></div>
+            <div><span data-f="tStopLbl">Stop</span><b data-f="tStop">-</b></div>
+            <div><span>Target</span><b data-f="tTgt">-</b></div>
+            <div><span>Size</span><b data-f="tSize">-</b></div>
+          </div>
+          <ul class="checks" data-f="checks"></ul>
+        </aside>
+        </div>
+      </div>
+
+      <div class="grid2" data-f="strats"></div>
+
+      <div class="card reveal">
+        <div class="cardhead"><h2>Latest signals</h2><span class="muted small">Same rules as the 5-year test, on live candles</span></div>
+        <div class="tablewrap"><table class="log" data-f="log"></table></div>
+      </div>
+    </section>
+  </template>
+
+  <!-- ===================== HOME ===================== -->
+  <section class="view" id="view-home" hidden>
+    <div class="landing">
+      <div class="land-copy">
+        <span class="kicker"><span class="dot live"></span> Live practice desk for gold and Bitcoin</span>
+        <h1 class="display">Trade the plan,<br><span class="glow">not the noise.</span></h1>
+        <p class="lead">Two strategies that held up over 5 years of testing, watched live for you: Quiet Breakout for gold and Trend Rider for Bitcoin. You get a clear call (buy, sell or wait) with the exact entry, stop and position size, plus TradingView charts and an honest record of every signal.</p>
+        <div class="ctas">
+          <a class="btn primary" href="#gold">Open the gold desk</a>
+          <button type="button" class="btn ghost big" data-scan><span class="radar" aria-hidden="true"></span> Scan the charts</button>
+        </div>
+      </div>
+      <div class="stage" aria-hidden="true">
+        <canvas class="hero-orb" id="heroOrb"></canvas>
+        <div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div>
+        <div class="halo"></div>
+        <img class="art bar" src="assets/gold.webp" alt="" data-art="gold">
+        <img class="art coin" src="assets/coin.webp" alt="" data-art="coin">
+      </div>
+    </div>
+
+    <div class="tiles">
+      <a class="tile card" href="#gold" data-tile="gold"><span class="eyebrow">Gold · XAUUSD</span><b class="mono" data-k="price">--</b><span class="tag" data-k="tag" data-tone="grey">Loading</span><span class="small muted" data-k="why">Getting live candles…</span></a>
+      <a class="tile card" href="#btc" data-tile="btc"><span class="eyebrow">Bitcoin · BTCUSD</span><b class="mono" data-k="price">--</b><span class="tag" data-k="tag" data-tone="grey">Loading</span><span class="small muted" data-k="why">Getting live candles…</span></a>
+    </div>
+
+    <div class="band card reveal">
+      <div><b class="mono" data-count="75" data-pre="+" data-suf="R">+75R</b><span>Gold Quiet Breakout over 5 years, after costs</span></div>
+      <div><b class="mono" data-count="52" data-suf="%">52%</b><span>Win rate. Wins run, so they are bigger than losses</span></div>
+      <div><b class="mono" data-count="-8" data-suf="R">-8R</b><span>Worst drop. All 40 setting combinations tested made money</span></div>
+      <div><b class="mono" data-count="22.2" data-pre="+" data-suf="R" data-dec="1">+22.2R</b><span>Last 12 months, a year never used to pick settings</span></div>
+    </div>
+
+    <div class="features">
+      <div class="card feat reveal"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 7-9" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="19" cy="5" r="2" fill="currentColor"/></svg></span><h3>Two strategies that passed</h3><p>I tested more than 10 popular strategies on 5 years of data. Quiet Breakout on gold and Trend Rider on Bitcoin made money in the training years and in the unseen final year, after fees.</p></div>
+      <div class="card feat reveal"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 016 6v4l2 3H4l2-3V9a6 6 0 016-6z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M10 19a2 2 0 004 0" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><h3>Live calls and alerts</h3><p>The desk runs the exact tested code on live candles, and only on candles that have closed. A sound and a pop-up tell you when a setup appears.</p></div>
+      <div class="card feat reveal"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 14l3-3 2 2 5-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h3>TradingView, marked up</h3><p>Each market has one chart workspace. The marked chart shows the arrows, trade zones and breakout levels, and the live TradingView chart sits right beside it on the same timeframe.</p></div>
+    </div>
+
+    <div class="card how reveal">
+      <div class="cardhead"><h2>How the Quiet Breakout works</h2><a class="small" href="#plan">Full rules</a></div>
+      <ol class="steps">
+        <li><b>01</b><h3>Wait for calm</h3><p>Gold has to go quiet first. The candle size (ATR) must be at or below normal.</p></li>
+        <li><b>02</b><h3>Trade the breakout</h3><p>A 1-hour candle closes past the 20-hour high or low, in the direction of the 50-day trend.</p></li>
+        <li><b>03</b><h3>Trail the stop</h3><p>The stop starts 3 ATR away and follows price. There's no fixed target, so winners run. Close before 5 PM.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="view" id="view-gold" data-market="gold" hidden></section>
+  <section class="view" id="view-btc" data-market="btc" hidden></section>
+
+
+
+  <!-- ===================== LEARN ===================== -->
+  <section class="view" id="view-learn" hidden>
+    <div class="hero card reveal learnhero">
+      <div class="eyebrow"><span class="dot live"></span> Learn · practice · prove it</div>
+      <h1 class="display small-display">From demo to <span class="glow">real money</span>, the honest way.</h1>
+      <p class="lead">Learn the rules, practise on real gold history, and let the coach grade your demo trades against the same rules prop firms use. When your own numbers say you're ready, you'll know. A week isn't enough to prove an edge. A few weeks of steady, rule-following demo trades is.</p>
+    </div>
+
+    <div class="grid2">
+      <div class="card reveal" id="readyCard">
+        <div class="cardhead"><h2>Ready for real money?</h2><button type="button" class="btn ghost" data-act="askCoach">Ask the coach</button></div>
+        <div class="ready"><div class="ring" id="readyRing"></div><div><span class="eyebrow">Readiness</span><h3 class="verdict2" id="readyVerdict">-</h3><p class="small muted">Scored from your trades placed by hand, your lessons and quizzes, and the loss limits below.</p></div></div>
+        <ul class="ritems" id="readyItems"></ul>
+      </div>
+      <div class="card reveal" id="chalCard">
+        <div class="cardhead"><h2>Funded challenge tracker</h2><span class="tag" id="chalStatus" data-tone="grey">-</span></div>
+        <div class="chalctl"><label>Rules<select id="chalRules"><option value="twoStep">2-step, phase 1 (+10%, 5% daily, 10% max)</option><option value="twoStep2">2-step, phase 2 (+5%, 5% daily, 10% max)</option><option value="oneStep">1-step (+10%, 3% daily, 6% max, best day under 50%)</option><option value="safe">My safe rules (+6%, 2% daily, 5% max)</option></select></label><button type="button" class="btn ghost" data-act="chalReset">Start over from now</button></div>
+        <ul class="cbars" id="chalBars"></ul>
+        <p class="small muted" id="chalNote"></p>
+        <p class="small muted">These are typical rules. Every firm's rules differ, so read the real ones before you pay for anything.</p>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Lessons</h2><span class="muted small">8 short lessons, each with a quick quiz</span></div>
+      <div class="lessons" id="lessonGrid"></div>
+      <div class="lessonbox" id="lessonBox" hidden></div>
+    </div>
+
+    <div class="card reveal" id="drillCard">
+      <div class="cardhead"><h2>Buy, Sell or Wait?</h2><button type="button" class="btn ghost" data-act="newDrill">New chart</button></div>
+      <p class="small" id="drillQ">Real gold candles from the last few months. You see the chart up to a candle close, then decide what the Quiet Breakout says. Press "New chart" to start.</p>
+      <div class="drillchart" id="drillChart"></div>
+      <div class="drillbtns" id="drillBtns"><button type="button" data-a="buy">Buy</button><button type="button" data-a="wait">Wait</button><button type="button" data-a="sell">Sell</button></div>
+      <p class="small" id="drillMsg"></p>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Your trade journal, reviewed</h2><span class="muted small">The coach checks every trade you place by hand</span></div>
+      <div class="stats" id="journalSum"></div>
+      <div class="tablewrap"><table class="log" id="journalTbl"></table></div>
+    </div>
+  </section>
+
+  <!-- ===================== AUTO-TRADER ===================== -->
+  <section class="view" id="view-bots" hidden>
+    <div class="hero card bothero reveal">
+      <div class="hero-top">
+        <div>
+          <div class="eyebrow"><span class="dot live"></span> Auto-trader · practice money</div>
+          <h1 class="display small-display">6 bots trading <span class="glow">by themselves.</span></h1>
+          <p class="lead">Each bot has its own $10,000 practice account and follows the exact tested rules on live candles, risking 1% per trade. When the site is closed, they catch up on every trade they would have taken as soon as you open it again. Autopilot can also trade <b>your</b> demo account while you trade next to it. Nothing here is real money or connected to a broker.</p>
+        </div>
+      </div>
+      <div class="botsum" id="botSum"></div>
+    </div>
+
+    <div class="card autocard reveal" id="autoCard">
+      <div class="cardhead"><h2>Autopilot for your demo account</h2><label class="switch"><input type="checkbox" id="autoOn"><span aria-hidden="true"></span><b>Autopilot</b></label></div>
+      <p class="autostate" id="autoState" data-tone="grey">Off.</p>
+      <div class="autogrid">
+        <div><h3 class="subhead">Strategies it may trade</h3><div class="autolist" id="autoList"></div>
+          <p class="small muted">It risks your risk setting (1% by default) per trade, uses the strategy's own stop, and closes the trade when the strategy's exit rule says so. It only takes signals that appear while this page is open after you switch it on, and it never touches the trades you place by hand.</p></div>
+        <div><h3 class="subhead">What it did</h3><div class="stats" id="autoStats"></div><ul class="autolog" id="autoLog"></ul></div>
+      </div>
+    </div>
+
+    <div class="botgrid" id="botGrid"></div>
+
+    <div class="grid2">
+      <div class="card reveal">
+        <div class="cardhead"><h2>Who's doing best</h2><span class="muted small">Bots vs you vs Telegram calls</span></div>
+        <div class="tablewrap"><table class="log" id="board"></table></div>
+        <p class="small muted">"You" is your own demo trades from the Gold and Bitcoin pages. Telegram calls are counted at your risk setting (1% = $100 per call).</p>
+      </div>
+
+      <div class="card reveal" id="callCard">
+        <div class="cardhead"><h2>Track a Telegram call</h2><span class="tag" data-tone="blue">Scott's calls</span></div>
+        <label class="pastebox"><span class="small muted">Paste the message exactly as he sent it</span>
+          <textarea id="callText" rows="4" placeholder="e.g. XAUUSD SELL NOW 4062 SL 4070 TP1 4055 TP2 4045"></textarea></label>
+        <div class="callfields">
+          <label>Market<select id="cMk"><option value="gold">Gold (XAUUSD)</option><option value="btc">Bitcoin</option></select></label>
+          <label>Side<select id="cSide"><option value="1">Buy</option><option value="-1">Sell</option></select></label>
+          <label>Entry <span class="muted">(blank = now)</span><input id="cEntry" type="number" inputmode="decimal" step="0.01"></label>
+          <label>Stop loss<input id="cSL" type="number" inputmode="decimal" step="0.01"></label>
+          <label>Take profit<input id="cTP" type="number" inputmode="decimal" step="0.01"></label>
+          <label>Source<input id="cSrc" type="text" value="Scott"></label>
+        </div>
+        <div class="tbtns"><button type="button" class="btn ghost" id="cParse">Read the message</button><button type="button" class="btn primary" id="cTrack">Track this call</button></div>
+        <p class="small muted" id="cMsg">Paste his message and tap "Read the message". Check the numbers, then tap "Track this call". It's followed like a trade: it fills at the entry, then wins or loses when the take profit or stop is hit.</p>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Telegram calls you're tracking</h2><button type="button" class="btn ghost" id="cClear">Clear finished calls</button></div>
+      <div class="tablewrap"><table class="log" id="callTbl"></table></div>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Every bot trade</h2><span class="muted small">Newest first</span></div>
+      <div class="tablewrap"><table class="log" id="botLog"></table></div>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Why the desk and Scott's calls don't match</h2></div>
+      <ul class="fixes">
+        <li><b>Different methods.</b> Scott reads the chart with his own judgement, which is his version of ICC. The desk follows fixed rules that were tested on 5 years of data. Two different methods will often disagree, and that doesn't mean either one is broken.</li>
+        <li><b>Different timing.</b> His calls can come from 1-minute to 15-minute charts and land at any moment. The desk only acts when a 15-minute or 1-hour candle closes, so it's usually later and less frequent.</li>
+        <li><b>Different prices.</b> Brokers quote gold a few dollars apart. The desk uses PAXG shifted to match spot gold (the gap is shown on the Gold page), so his entry might sit a little above or below the desk's numbers.</li>
+        <li><b>The fair test is results.</b> Track his calls here for a few weeks next to the bots and your own trades. The "Who's doing best" table will show which one actually works.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ===================== PLAN & RECORD ===================== -->
+  <section class="view" id="view-plan" hidden>
+    <div class="hero card reveal">
+      <div class="eyebrow">Right now in Toronto</div>
+      <div class="price"><span id="planTime">--</span></div>
+      <div class="status"><h1 id="planWord">-</h1><p id="planWhy"></p></div>
+      <div class="timeline" id="timeline" aria-label="Gold trading day, Toronto time"></div>
+      <div class="legend small muted">
+        <span><i class="sw" data-tone="grey"></i>Closed</span><span><i class="sw" data-tone="blue"></i>Asia (quiet)</span><span><i class="sw" data-tone="green"></i>London + New York (busiest)</span><span><i class="sw news"></i>Big news times</span>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card reveal">
+        <div class="cardhead"><h2>The plan: Quiet Breakout</h2><span class="tag" data-tone="green">Held up 5 years</span></div>
+        <ol class="rules">
+          <li><b>Chart:</b> gold, 1-hour candles. Only decide when a candle has closed.</li>
+          <li><b>Trend:</b> gold above its 50-day average means buys only. Below it means sells only.</li>
+          <li><b>Calm first:</b> the candles must be small. ATR(14) has to be at or below its usual level (its 100-hour average). Breakouts out of a jumpy market are skipped.</li>
+          <li><b>Buy</b> when a 1-hour candle closes above the highest high of the previous 20 candles. <b>Sell</b> when it closes below the lowest low.</li>
+          <li><b>Stop:</b> 3 × ATR away. Then it <b>trails</b>. Close the trade if a 1-hour close lands more than 3 × ATR back from the best close since you entered.</li>
+          <li><b>No fixed target.</b> Let winners run. Close before 5 PM, when gold takes its daily break, and before the Friday close.</li>
+          <li><b>Risk 1%</b> of your account per trade, and only one trade at a time.</li>
+        </ol>
+        <p class="small muted">The desk works all of this out for you. The Gold page shows each check live.</p>
+      </div>
+
+      <div class="card reveal">
+        <div class="cardhead"><h2>Your settings</h2></div>
+        <div class="form">
+          <label>Demo account size (USD)<input id="setAcct" type="number" inputmode="decimal" min="100" step="100"></label>
+          <label>Risk per trade (%)<input id="setRisk" type="number" inputmode="decimal" min="0.1" max="5" step="0.1"></label>
+          <label class="row"><input id="setAlerts" type="checkbox"> Alert me when a new setup appears (keep this tab open)</label>
+          <label class="row"><input id="setSound" type="checkbox"> Play a sound with alerts</label>
+          <label>Theme<select id="setTheme"><option value="dark">Dark (futuristic)</option><option value="light">Light</option></select></label>
+          <p class="small muted" id="riskLine"></p>
+          <button type="button" class="btn" id="testAlert">Test an alert</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>5-year record</h2><span class="muted small" id="recRange"></span></div>
+      <div class="tablewrap"><table class="rec" id="recTable"></table></div>
+      <div class="years" id="recYears"></div>
+      <p class="small muted">R means the amount you risked on a trade. At 1% risk on $10,000, 1R is $100, so +75R would be about +$7,500 over 5 years. Costs are included: gold 0.015% each way, Bitcoin 0.1% each way. The last 12 months were never used to pick any setting.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Signal log</h2><span class="muted small">Every signal on the live candles, both markets</span></div>
+      <div class="tablewrap"><table class="log" id="allLog"></table></div>
+      <p class="small muted">"Seen live" means this browser saw the signal at the time. "Found later" means the site was closed when it happened. Neither one ever changes after the candle closes.</p>
+    </div>
+
+    <div class="card reveal">
+      <div class="cardhead"><h2>Why the old desk was sometimes off, and what changed</h2></div>
+      <ul class="fixes">
+        <li><b>Strategies that didn't hold up.</b> Over 5 years, ICC, RSI-2 and the 30-min Bollinger breakout lost money or only broke even. A 1-year test made them look better than they were. Now only the Quiet Breakout gives gold calls. ICC stays on the gold desk as practice. On Bitcoin, ICC lost money even with low fees, so it was replaced by Trend Rider, a 4-hour trend strategy that held up.</li>
+        <li><b>The chart and the signals used different prices.</b> The old gold chart was TradingView's XAUUSD, while the signals came from PAXG, so arrows and levels could sit a few dollars off. Now the desk chart is drawn from the same candles the strategy reads. It's shifted by the measured PAXG to XAUUSD gap, and that gap is shown on the page.</li>
+        <li><b>The gap was measured at bad times.</b> On weekends, PAXG keeps trading while spot gold is frozen, so the old offset could be wrong. Now the gap is measured only while gold is open, smoothed, and saved.</li>
+        <li><b>Two different ICC versions.</b> The desk and the watcher used slightly different ICC code. Now there is one engine file. The 5-year test ran this exact file, and it gave the same results as the separate Python test.</li>
+        <li><b>Arrows were in the wrong place.</b> The chart library only accepts whole candle numbers, so a signal time that fell between candles was drawn at the far-left edge. Arrows now snap to the candle that gave the signal.</li>
+        <li><b>Frozen data looked live.</b> Now every page shows when the last candle closed, and it warns you if the data is late.</li>
+        <li><b>Short history.</b> The daily 50-day average now uses real daily candles, not a few weeks of hourly ones.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+
+<footer class="site-foot">
+  <div class="foot-in">
+    <a class="brand" href="#home"><span class="mark" aria-hidden="true"><svg viewBox="0 0 20 20" width="16" height="16"><path d="M3 15 L8 9 L11 12 L17 5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="word">Trading Desk</span></a>
+    <nav><a href="#home">Home</a><a href="#gold">Gold</a><a href="#btc">Bitcoin</a><a href="#bots">Auto-trader</a><a href="#learn">Learn</a><a href="#plan">Plan &amp; Record</a><a href="os.html">My OS</a><a href="jarvis.html">Atlas</a></nav>
+    <p>For demo practice and learning only. This is not financial advice, and past results don't promise future results. Prices come from Coinbase, Binance and gold-api.com, and charts from TradingView and Lightweight Charts. The 3D art was rendered in Blender.</p>
+  </div>
+</footer>
+
+<nav class="bottomtabs" aria-label="Sections">
+  <a href="#home" data-tab="home"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9l7-6 7 6v8H3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Home</a>
+  <a href="#gold" data-tab="gold"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="3" y="8" width="14" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6 8l1.5-3h5L14 8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>Gold</a>
+  <a href="#btc" data-tab="btc"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 6.5v7M8 6.5h3a1.7 1.7 0 010 3.5H8h3.5a1.8 1.8 0 010 3.5H8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>Bitcoin</a>
+  <a href="#bots" data-tab="bots"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="6" width="12" height="10" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M10 3v3M7.5 11h.01M12.5 11h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>Bots</a>
+  <a href="#learn" data-tab="learn"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M2.5 7.5L10 4l7.5 3.5L10 11z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M5.5 9v4c1.2 1.3 2.7 2 4.5 2s3.3-.7 4.5-2V9" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>Learn</a>
+  <a href="#plan" data-tab="plan"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="3" width="12" height="14" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M7 7h6M7 10h6M7 13h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>Plan</a>
+</nav>
+
+<div class="sheet" id="scanSheet" hidden>
+  <div class="sheet-back" data-close></div>
+  <div class="sheet-panel" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
+    <div class="sheet-head"><span class="radar big" aria-hidden="true"></span><div><h2 id="scanTitle">Chart scan</h2><span class="muted small" id="scanTime"></span></div><button type="button" class="iconbtn" data-close aria-label="Close the scan">&times;</button></div>
+    <ol class="scansteps" id="scanSteps"></ol>
+    <div id="scanOut"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<dialog class="pine" id="pineDlg" aria-labelledby="pineTitle">
+  <div class="pine-in">
+    <div class="cardhead"><h2 id="pineTitle">Put the analysis on your TradingView</h2><button type="button" class="btn ghost" data-close>Close</button></div>
+    <p class="small">The TradingView chart inside this site belongs to TradingView, and they don't let other websites draw on it. So here is the desk's own indicator for your real TradingView account. It draws the same things: support and resistance, trend lines, yesterday's high and low, the Asian range, market structure, and the buy and sell signals for Quiet Breakout, Gold Trend, Trend Rider and London Breakout, with alerts.</p>
+    <ol class="steps">
+      <li>Open <b>tradingview.com/chart</b> and sign in (a free account works).</li>
+      <li>Open <span id="pineTf">the chart</span>.</li>
+      <li>At the bottom, click <b>Pine Editor</b>. Select everything in it and delete it.</li>
+      <li>Press <b>Copy the script</b> below, paste it into the Pine Editor, then click <b>Add to chart</b>. Click <b>Save</b> so it stays in "My scripts".</li>
+      <li>For phone alerts: right-click the chart, choose <b>Add alert</b>, set Condition to <b>Trading Desk Analyzer</b>, and pick a signal.</li>
+    </ol>
+    <div class="tbtns"><button type="button" class="btn primary" data-copy>Copy the script</button><a class="btn ghost" href="https://www.tradingview.com/chart/" target="_blank" rel="noopener">Open TradingView</a><span class="small muted" id="pineMsg"></span></div>
+    <pre class="code" id="pineCode"></pre>
+  </div>
+</dialog>
+
+<script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script src="engine.js"></script>
+<script src="results.js"></script>
+<script src="data.js"></script>
+<script src="os-config.js"></script>
+<script src="brain.js"></script>
+<script src="analyze.js"></script>
+<script src="chart.js"></script>
+<script src="pine.js"></script>
+<script src="orb.js"></script>
+<script src="app.js"></script>
+<script src="coach.js"></script>
+<script src="learn.js"></script>
+</body>
+</html>

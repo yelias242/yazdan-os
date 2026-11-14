@@ -1,0 +1,292 @@
+//@version=6
+// Trading Desk Analyzer: the same lines the desk's Analyze button draws, on your own TradingView chart.
+// Practice tool for a demo account. It is not financial advice.
+// Best charts: OANDA:XAUUSD 1h (Quiet Breakout), XAUUSD 15m (London Breakout), XAUUSD or BTCUSD 4h (Gold Trend / Trend Rider).
+indicator("Trading Desk Analyzer", shorttitle = "Desk Analyzer", overlay = true, max_lines_count = 300, max_labels_count = 300, max_boxes_count = 120)
+
+// ───────────── Inputs ─────────────
+showQB  = input.bool(true, "Quiet Breakout (gold, 1-hour chart)", group = "Strategies")
+showTR  = input.bool(true, "Gold Trend / Trend Rider (4-hour chart)", group = "Strategies")
+showLDN = input.bool(true, "London Breakout + Asian range (gold, 15m or 1h)", group = "Strategies")
+showPD  = input.bool(true, "Yesterday's high and low", group = "Levels")
+showSR  = input.bool(true, "Support and resistance zones", group = "Levels")
+showTL  = input.bool(true, "Trend lines", group = "Levels")
+showMS  = input.bool(true, "Market structure (HH HL LH LL)", group = "Levels")
+showTbl = input.bool(true, "Summary table", group = "Levels")
+pivLen  = input.int(3, "Swing size (candles on each side)", minval = 2, maxval = 10, group = "Levels")
+
+TZ = "America/Toronto"
+tk = syminfo.ticker
+isGold = str.contains(tk, "XAU") or str.contains(tk, "GOLD") or str.contains(tk, "PAXG")
+tfSec = timeframe.in_seconds()
+is1h = tfSec == 3600
+is4h = tfSec == 14400
+isIntra = tfSec <= 3600
+
+cUp   = color.rgb(52, 211, 153)
+cDn   = color.rgb(248, 113, 113)
+cGold = color.rgb(245, 196, 81)
+cCyan = color.rgb(94, 234, 212)
+cInk  = color.rgb(245, 242, 234)
+
+atrE = ta.ema(ta.tr(true), 14)
+d50 = request.security(syminfo.tickerid, "D", ta.sma(close, 50)[1], lookahead = barmerge.lookahead_on)
+sma200 = ta.sma(close, 200)
+
+// ───────────── 1. Quiet Breakout (gold, 1-hour) ─────────────
+// Calm market (ATR at or below its 100-bar average), close past the 20-hour high/low, with the 50-day trend.
+// 3 x ATR trailing stop, no fixed target.
+atr100 = ta.ema(atrE, 100)
+calm = atrE <= atr100
+qbHi = ta.highest(high, 20)
+qbLo = ta.lowest(low, 20)
+qbOn = showQB and isGold and is1h
+var int qbPos = 0
+var float qbStop = na
+var float qbExt = na
+qbBuy = false
+qbSell = false
+qbExit = false
+if qbOn
+    if qbPos == 1
+        if low <= qbStop or close < qbExt - 3 * atrE
+            qbPos := 0
+            qbExit := true
+        else
+            qbExt := math.max(qbExt, close)
+    else if qbPos == -1
+        if high >= qbStop or close > qbExt + 3 * atrE
+            qbPos := 0
+            qbExit := true
+        else
+            qbExt := math.min(qbExt, close)
+    if qbPos == 0 and not qbExit and calm and close > qbHi[1] and close > d50
+        qbPos := 1
+        qbStop := close - 3 * atrE
+        qbExt := close
+        qbBuy := true
+    else if qbPos == 0 and not qbExit and calm and close < qbLo[1] and close < d50
+        qbPos := -1
+        qbStop := close + 3 * atrE
+        qbExt := close
+        qbSell := true
+qbTrail = qbPos == 1 ? math.max(qbStop, qbExt - 3 * atrE) : qbPos == -1 ? math.min(qbStop, qbExt + 3 * atrE) : na
+plot(qbOn ? qbHi : na, "QB buy level (20-hour high)", color = color.new(cCyan, 25), style = plot.style_stepline)
+plot(qbOn ? qbLo : na, "QB sell level (20-hour low)", color = color.new(cCyan, 25), style = plot.style_stepline)
+plot(qbOn ? qbTrail : na, "QB trailing stop", color = cDn, style = plot.style_linebr, linewidth = 2)
+plot(isGold and isIntra ? d50 : na, "50-day average", color = cGold, linewidth = 2)
+if qbBuy
+    label.new(bar_index, low, "BUY · Quiet Breakout\nSL " + str.tostring(qbStop, format.mintick) + " · trailing", style = label.style_label_up, color = cUp, textcolor = color.black, size = size.small)
+if qbSell
+    label.new(bar_index, high, "SELL · Quiet Breakout\nSL " + str.tostring(qbStop, format.mintick) + " · trailing", style = label.style_label_down, color = cDn, textcolor = color.white, size = size.small)
+
+// ───────────── 2. Gold Trend (20/10) and Trend Rider for Bitcoin (40/20), 4-hour, buys only ─────────────
+trN = isGold ? 20 : 40
+trX = isGold ? 10 : 20
+trOn = showTR and is4h
+trHi = ta.highest(high, trN)
+trLo = ta.lowest(low, trX)
+var int trPos = 0
+var float trStop = na
+trBuy = false
+trExit = false
+if trOn
+    if trPos == 1 and (low <= trStop or close < trLo[1])
+        trPos := 0
+        trExit := true
+    else if trPos == 0 and close > trHi[1] and close > sma200
+        trPos := 1
+        trStop := close - 3 * atrE
+        trBuy := true
+plot(trOn ? trHi : na, "Trend: buy level", color = color.new(cCyan, 20), style = plot.style_stepline)
+plot(trOn ? trLo : na, "Trend: exit line", color = color.new(color.rgb(96, 165, 250), 10), style = plot.style_stepline)
+plot(trOn ? sma200 : na, "200-candle average", color = cGold, linewidth = 2)
+if trBuy
+    label.new(bar_index, low, "BUY · " + (isGold ? "Gold Trend" : "Trend Rider") + "\nSL " + str.tostring(trStop, format.mintick) + " · exit on close below the low line", style = label.style_label_up, color = cUp, textcolor = color.black, size = size.small)
+if trExit
+    label.new(bar_index, high, "EXIT · trend", style = label.style_label_down, color = color.new(cInk, 20), textcolor = color.black, size = size.tiny)
+
+// ───────────── 3. London Breakout of the Asian range (gold) ─────────────
+// Asian range 8 PM to 2 AM Toronto. 2 AM to 10 AM: first close outside the range, with the 50-day trend.
+// Stop at the other side (max 0.6%), target 2.5R, close by 2 PM. One trade a day.
+ldnOn = showLDN and isGold and isIntra
+inAsia = not na(time(timeframe.period, "2000-0200", TZ))
+inLdn = not na(time(timeframe.period, "0200-1000", TZ))
+var float asH = na
+var float asL = na
+var bool ldnDone = false
+var box asBox = na
+ldnBuy = false
+ldnSell = false
+if ldnOn
+    if inAsia and not inAsia[1]
+        asH := high
+        asL := low
+        ldnDone := false
+        asBox := box.new(bar_index, high, bar_index, low, border_color = color.new(cGold, 25), bgcolor = color.new(cGold, 90), border_style = line.style_dashed, text = "Asian range", text_color = cGold, text_size = size.small, text_halign = text.align_left, text_valign = text.align_top)
+    else if inAsia
+        asH := math.max(asH, high)
+        asL := math.min(asL, low)
+        box.set_top(asBox, asH)
+        box.set_bottom(asBox, asL)
+        box.set_right(asBox, bar_index)
+    if inLdn and not ldnDone and not na(asH)
+        w = (asH - asL) / close
+        if w < 0.003 or w > 0.016
+            ldnDone := true
+        else if close > asH
+            ldnDone := true
+            ldnBuy := close > d50
+        else if close < asL
+            ldnDone := true
+            ldnSell := close < d50
+if ldnBuy or ldnSell
+    dir = ldnBuy ? 1 : -1
+    st = ldnBuy ? asL : asH
+    cap = close * 0.006
+    st := math.abs(close - st) > cap ? close - dir * cap : st
+    tp = close + dir * 2.5 * math.abs(close - st)
+    line.new(bar_index, st, bar_index + 12, st, color = cDn, width = 1)
+    line.new(bar_index, tp, bar_index + 12, tp, color = cUp, width = 1)
+    label.new(bar_index, ldnBuy ? low : high, (ldnBuy ? "BUY" : "SELL") + " · London Breakout\nSL " + str.tostring(st, format.mintick) + "  TP " + str.tostring(tp, format.mintick), style = ldnBuy ? label.style_label_up : label.style_label_down, color = ldnBuy ? cUp : cDn, textcolor = ldnBuy ? color.black : color.white, size = size.small)
+
+// ───────────── Yesterday's high and low ─────────────
+[pdh, pdl] = request.security(syminfo.tickerid, "D", [high[1], low[1]], lookahead = barmerge.lookahead_on)
+var line pdhL = na
+var line pdlL = na
+var label pdhT = na
+var label pdlT = na
+if showPD and barstate.islast and tfSec < 86400
+    line.delete(pdhL)
+    line.delete(pdlL)
+    label.delete(pdhT)
+    label.delete(pdlT)
+    pdhL := line.new(bar_index - 40, pdh, bar_index + 10, pdh, color = cGold, style = line.style_dashed)
+    pdlL := line.new(bar_index - 40, pdl, bar_index + 10, pdl, color = cGold, style = line.style_dashed)
+    pdhT := label.new(bar_index + 10, pdh, "Yesterday high", style = label.style_label_left, color = color.new(cGold, 85), textcolor = cGold, size = size.small)
+    pdlT := label.new(bar_index + 10, pdl, "Yesterday low", style = label.style_label_left, color = color.new(cGold, 85), textcolor = cGold, size = size.small)
+
+// ───────────── Swings: market structure, trend lines, support and resistance ─────────────
+ph = ta.pivothigh(high, pivLen, pivLen)
+pl = ta.pivotlow(low, pivLen, pivLen)
+var float lastPH = na
+var float lastPL = na
+var float hP1 = na
+var int hI1 = na
+var float hP2 = na
+var int hI2 = na
+var float lP1 = na
+var int lI1 = na
+var float lP2 = na
+var int lI2 = na
+var array<float> piv = array.new_float()
+if not na(ph)
+    if showMS and not na(lastPH)
+        label.new(bar_index - pivLen, ph, ph > lastPH ? "HH" : "LH", style = label.style_label_down, color = color.new(color.black, 100), textcolor = ph > lastPH ? cUp : cDn, size = size.tiny)
+    lastPH := ph
+    hP1 := hP2
+    hI1 := hI2
+    hP2 := ph
+    hI2 := bar_index - pivLen
+    array.push(piv, ph)
+if not na(pl)
+    if showMS and not na(lastPL)
+        label.new(bar_index - pivLen, pl, pl > lastPL ? "HL" : "LL", style = label.style_label_up, color = color.new(color.black, 100), textcolor = pl > lastPL ? cUp : cDn, size = size.tiny)
+    lastPL := pl
+    lP1 := lP2
+    lI1 := lI2
+    lP2 := pl
+    lI2 := bar_index - pivLen
+    array.push(piv, pl)
+if array.size(piv) > 80
+    array.shift(piv)
+
+var line tlRes = na
+var line tlSup = na
+if showTL and barstate.islast
+    line.delete(tlRes)
+    line.delete(tlSup)
+    if not na(hP1) and not na(hP2) and hP2 < hP1
+        tlRes := line.new(hI1, hP1, hI2, hP2, extend = extend.right, color = cDn, width = 2)
+    if not na(lP1) and not na(lP2) and lP2 > lP1
+        tlSup := line.new(lI1, lP1, lI2, lP2, extend = extend.right, color = cUp, width = 2)
+
+var array<box> srBoxes = array.new_box()
+if showSR and barstate.islast
+    for b in srBoxes
+        box.delete(b)
+    array.clear(srBoxes)
+    srt = array.copy(piv)
+    array.sort(srt, order.ascending)
+    tol = 0.6 * atrE
+    zLo = array.new_float()
+    zHi = array.new_float()
+    zN = array.new_int()
+    float cLo = na
+    float cHi = na
+    int cN = 0
+    for p in srt
+        if na(cLo)
+            cLo := p
+            cHi := p
+            cN := 1
+        else if p - cHi <= tol and p - cLo <= 1.1 * atrE
+            cHi := p
+            cN += 1
+        else
+            array.push(zLo, cLo)
+            array.push(zHi, cHi)
+            array.push(zN, cN)
+            cLo := p
+            cHi := p
+            cN := 1
+    if not na(cLo)
+        array.push(zLo, cLo)
+        array.push(zHi, cHi)
+        array.push(zN, cN)
+    n = array.size(zLo)
+    int above = 0
+    int below = 0
+    if n > 0
+        for i = 0 to n - 1
+            lo = array.get(zLo, i) - 0.15 * atrE
+            hi = array.get(zHi, i) + 0.15 * atrE
+            cnt = array.get(zN, i)
+            if cnt >= 2 and lo > close and above < 2
+                above += 1
+                array.push(srBoxes, box.new(bar_index - 120, hi, bar_index + 12, lo, border_color = color.new(cDn, 40), bgcolor = color.new(cDn, 88), text = "Resistance · " + str.tostring(cnt) + " swings", text_color = cDn, text_size = size.small, text_halign = text.align_right))
+        for i = n - 1 to 0
+            lo = array.get(zLo, i) - 0.15 * atrE
+            hi = array.get(zHi, i) + 0.15 * atrE
+            cnt = array.get(zN, i)
+            if cnt >= 2 and hi < close and below < 2
+                below += 1
+                array.push(srBoxes, box.new(bar_index - 120, hi, bar_index + 12, lo, border_color = color.new(cUp, 40), bgcolor = color.new(cUp, 88), text = "Support · " + str.tostring(cnt) + " swings", text_color = cUp, text_size = size.small, text_halign = text.align_right))
+
+// ───────────── Summary table ─────────────
+var table tbl = table.new(position.top_right, 2, 6, bgcolor = color.new(color.rgb(11, 14, 20), 8), border_color = color.new(cInk, 85), border_width = 1, frame_color = color.new(cGold, 50), frame_width = 1)
+if showTbl and barstate.islast
+    trendTxt = close > sma200 ? "Up (above the 200 average)" : "Down (below the 200 average)"
+    qbTxt = not (isGold and is1h) ? "Open a 1h gold chart" : qbPos == 1 ? "In a BUY · stop " + str.tostring(qbTrail, format.mintick) : qbPos == -1 ? "In a SELL · stop " + str.tostring(qbTrail, format.mintick) : not calm ? "Wait · market too jumpy" : close > d50 ? "Ready · BUY above " + str.tostring(qbHi, format.mintick) : "Ready · SELL below " + str.tostring(qbLo, format.mintick)
+    trTxt = not is4h ? "Open a 4h chart" : trPos == 1 ? "In a BUY · exit below " + str.tostring(trLo, format.mintick) : close > sma200 ? "Ready · BUY above " + str.tostring(trHi, format.mintick) : "Sitting out (below the 200 average)"
+    ldTxt = not (isGold and isIntra) ? "Gold 15m or 1h only" : inAsia ? "Asian range building" : ldnDone ? "Done for today" : inLdn and not na(asH) ? (close > d50 ? "Watching for a close above " + str.tostring(asH, format.mintick) : "Watching for a close below " + str.tostring(asL, format.mintick)) : "Waiting for the next Asian range"
+    table.cell(tbl, 0, 0, "Trading Desk", text_color = cGold, text_size = size.small)
+    table.cell(tbl, 1, 0, tk, text_color = cInk, text_size = size.small)
+    table.cell(tbl, 0, 1, "Trend", text_color = color.gray, text_size = size.small)
+    table.cell(tbl, 1, 1, trendTxt, text_color = close > sma200 ? cUp : cDn, text_size = size.small)
+    table.cell(tbl, 0, 2, "Quiet Breakout", text_color = color.gray, text_size = size.small)
+    table.cell(tbl, 1, 2, qbTxt, text_color = cInk, text_size = size.small)
+    table.cell(tbl, 0, 3, isGold ? "Gold Trend" : "Trend Rider", text_color = color.gray, text_size = size.small)
+    table.cell(tbl, 1, 3, trTxt, text_color = cInk, text_size = size.small)
+    table.cell(tbl, 0, 4, "London Breakout", text_color = color.gray, text_size = size.small)
+    table.cell(tbl, 1, 4, ldTxt, text_color = cInk, text_size = size.small)
+    table.cell(tbl, 0, 5, "Rule", text_color = color.gray, text_size = size.small)
+    table.cell(tbl, 1, 5, "Signals only count when the candle closes", text_color = color.gray, text_size = size.small)
+
+// ───────────── Alerts ─────────────
+alertcondition(qbBuy, "Quiet Breakout BUY", "Gold Quiet Breakout BUY at {{close}} (1h close)")
+alertcondition(qbSell, "Quiet Breakout SELL", "Gold Quiet Breakout SELL at {{close}} (1h close)")
+alertcondition(trBuy, "Trend BUY", "{{ticker}} trend BUY at {{close}} (4h close)")
+alertcondition(trExit, "Trend EXIT", "{{ticker}} trend EXIT at {{close}} (4h close)")
+alertcondition(ldnBuy, "London Breakout BUY", "Gold London Breakout BUY at {{close}}")
+alertcondition(ldnSell, "London Breakout SELL", "Gold London Breakout SELL at {{close}}")

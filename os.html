@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05060A">
+<title>My OS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="os.css">
+<link rel="stylesheet" href="os-app.css">
+</head>
+<body>
+<div class="bgfx" aria-hidden="true"><i></i><i></i></div>
+<div class="grain" aria-hidden="true"></div>
+
+<nav class="rail" aria-label="OS sections">
+  <a class="rail-logo" href="#home" aria-label="Home"><span class="orb-mini" aria-hidden="true"></span></a>
+  <a href="#home" data-v="home" title="Home"><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg><span>Home</span></a>
+  <a href="#atlas" data-v="atlas" title="Atlas voice"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/></svg><span>Atlas</span></a>
+  <a href="#trading" data-v="trading" title="Trading Desk"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Trading</span></a>
+  <a href="#charts" data-v="charts" title="TradingView charts"><svg viewBox="0 0 24 24"><path d="M6 4v16M6 8h-2v6h2M12 6v12M12 9h-2v5h2M18 5v14M18 7h-2v8h2"/></svg><span>Charts</span></a>
+  <a href="#school" data-v="school" title="School"><svg viewBox="0 0 24 24"><path d="M3 9l9-4 9 4-9 4z"/><path d="M7 11v4c1.5 1.5 3 2 5 2s3.5-.5 5-2v-4"/></svg><span>School</span></a>
+  <a href="#vault" data-v="vault" title="Notes"><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg><span>Vault</span></a>
+  <a href="#create" data-v="create" title="Create with Kling"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Create</span></a>
+  <a href="#apps" data-v="apps" title="Apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Apps</span></a>
+  <a href="#settings" data-v="settings" class="rail-end" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg><span>Settings</span></a>
+</nav>
+
+<header class="topbar">
+  <div class="tb-title"><span class="eyebrow" id="tbDate">-</span><b id="tbView">Home</b></div>
+  <form class="cmd glass" id="cmd" autocomplete="off" role="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>
+    <input id="cmdIn" type="text" placeholder="Ask or command… (⌘K)  e.g. “plan my day”, “add task anatomy notes by Monday”" aria-label="Ask your OS">
+    <button type="button" class="cmd-mic" id="cmdMic" aria-label="Talk"><svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0013 0M12 17.5V21"/></svg></button>
+  </form>
+  <div class="tb-clock"><b class="mono" id="tbClock">--</b><span class="eyebrow">Toronto</span></div>
+</header>
+<div class="answer glass" id="answer" hidden></div>
+
+<main class="views">
+  <!-- HOME -->
+  <section class="view" id="v-home">
+    <div class="hello">
+      <div class="hello-copy">
+        <h1 class="greet" id="greet">Hello.</h1>
+        <p class="sub" id="greetSub">Your school, trading and automations in one place.</p>
+        <div class="goals" id="goals"></div>
+      </div>
+      <div class="hello-orb"><canvas id="homeOrb" aria-hidden="true"></canvas><button type="button" class="orb-cta" data-go="atlas">Talk to <span id="aName2">Atlas</span></button></div>
+    </div>
+
+    <div class="cards4">
+      <article class="glass card k-next"><span class="eyebrow">Next up</span><b class="big" id="nextTitle">-</b><span class="mono" id="nextWhen">-</span><div class="cd mono" id="nextCd"></div></article>
+      <article class="glass card k-mkt" data-go="trading"><span class="eyebrow">Markets</span><div class="mk"><span>Gold</span><b class="mono" id="hGold">-</b></div><small id="hGoldW">-</small><div class="mk"><span>Bitcoin</span><b class="mono" id="hBtc">-</b></div><small id="hBtcW">-</small></article>
+      <article class="glass card k-acct" data-go="trading"><span class="eyebrow">Demo account</span><b class="big mono" id="hBal">-</b><span id="hOpen">-</span><span class="chip" id="hAuto">Autopilot off</span></article>
+      <article class="glass card k-ready"><span class="eyebrow">Ready for real money</span><div class="minring" id="hRing"></div><span id="hReadyV">-</span></article>
+    </div>
+
+    <article class="glass card wide">
+      <div class="ch"><h2>Today</h2><span class="eyebrow" id="tlDay"></span></div>
+      <div class="timeline" id="timeline"></div>
+      <div class="tl-legend"><span><i data-k="school"></i>School</span><span><i data-k="work"></i>Work</span><span><i data-k="busy"></i>Gold's busiest hours</span><span><i data-k="london"></i>London window</span><span><i data-k="closed"></i>Gold closed</span></div>
+    </article>
+
+    <div class="cols">
+      <article class="glass card">
+        <div class="ch"><h2>Tasks</h2><span class="eyebrow" id="taskCount"></span></div>
+        <form class="addrow" id="taskForm"><input id="taskIn" placeholder="Add a task… (e.g. anatomy notes by Monday)"><button class="btn small gold">Add</button></form>
+        <ul class="tasks" id="tasks"></ul>
+      </article>
+      <article class="glass card">
+        <div class="ch"><h2>Coach</h2><span class="eyebrow">Talks like a person</span></div>
+        <ol class="feed" id="feed"></ol>
+        <form class="addrow" id="feedForm"><input id="feedIn" placeholder="Ask your coach…"><button class="btn small">Send</button></form>
+      </article>
+    </div>
+
+    <div class="cols">
+      <article class="glass card">
+        <div class="ch"><h2>Skills</h2><span class="eyebrow">Instant · Playbook · Claude</span></div>
+        <div class="skillgrid" id="skillGrid"></div>
+      </article>
+      <article class="glass card">
+        <div class="ch"><h2>Automations</h2><span class="eyebrow">Run in Claude on a schedule</span></div>
+        <ul class="autos" id="autos"></ul>
+      </article>
+    </div>
+  </section>
+
+  <!-- ATLAS / TRADING (embedded pages load when opened) -->
+  <section class="view frameview" id="v-atlas" hidden><iframe title="Atlas" data-src="jarvis.html" allow="microphone; autoplay"></iframe></section>
+  <section class="view frameview" id="v-trading" hidden><iframe title="Trading Desk" data-src="index.html#gold" allow="microphone; clipboard-write"></iframe></section>
+
+  <!-- CHARTS -->
+  <section class="view" id="v-charts" hidden>
+    <div class="chartbar"><div class="seg" id="chartSym"><button data-s="OANDA:XAUUSD" aria-pressed="true">Gold</button><button data-s="COINBASE:BTCUSD">Bitcoin</button><button data-s="both">Both</button></div><div class="seg" id="chartIv"><button data-i="15">15m</button><button data-i="60" aria-pressed="true">1h</button><button data-i="240">4h</button><button data-i="D">1D</button></div><button type="button" class="btn small" id="chartAnalyze">Analyze on the desk</button></div>
+    <div class="tvwrap" id="tvwrap"></div>
+  </section>
+
+  <!-- SCHOOL -->
+  <section class="view" id="v-school" hidden>
+    <div class="cols school-top">
+      <article class="glass card">
+        <div class="ch"><h2>This week</h2><button type="button" class="btn small" id="addClassBtn">Add a class or shift</button></div>
+        <div class="week" id="week"></div>
+        <form class="classform" id="classForm" hidden>
+          <input id="cfTitle" placeholder="Name (e.g. Anatomy)" required>
+          <select id="cfKind"><option value="school">School</option><option value="work">Work</option><option value="gym">Gym</option><option value="other">Other</option></select>
+          <div class="cfdays" id="cfDays"></div>
+          <input id="cfStart" type="time" value="09:00" required><input id="cfEnd" type="time" value="10:30" required>
+          <button class="btn small gold">Save</button><button type="button" class="btn small" id="cfCancel">Cancel</button>
+        </form>
+      </article>
+      <article class="glass card">
+        <div class="ch"><h2>Study timer</h2><span class="eyebrow">25 on · 5 off</span></div>
+        <div class="pomo"><b class="mono" id="pomoT">25:00</b><div class="pomo-btns"><button class="btn small gold" id="pomoGo">Start</button><button class="btn small" id="pomoReset">Reset</button></div><span id="pomoMsg" class="muted small">Pick a task, then press start.</span></div>
+        <div class="ch" style="margin-top:14px"><h2>School portal</h2></div>
+        <p class="small muted" id="portalNote">Add your Blackboard link in Settings and it opens right here.</p>
+        <div class="appbtns"><button class="btn small" data-app="portal">Open Blackboard</button><button class="btn small" data-claude="Make me a study plan for this week from my class schedule, and quiz me on the hardest topic.">Study plan with Claude</button></div>
+      </article>
+    </div>
+    <article class="glass card">
+      <div class="ch"><h2>School tasks</h2></div>
+      <ul class="tasks" id="schoolTasks"></ul>
+    </article>
+  </section>
+
+  <!-- VAULT -->
+  <section class="view" id="v-vault" hidden>
+    <div class="vault">
+      <aside class="glass card vlist"><div class="ch"><h2>Notes</h2><button class="btn small gold" id="newNote">New</button></div><input id="noteSearch" placeholder="Search notes"><div class="folders" id="folders"></div><ul class="notes" id="notes"></ul></aside>
+      <article class="glass card veditor"><input id="noteTitle" placeholder="Title"><select id="noteFolder"><option value="inbox">Inbox</option><option value="school">School</option><option value="trading">Trading</option><option value="ideas">Ideas</option><option value="work">Work</option></select><textarea id="noteBody" placeholder="Dump anything here. Ask Claude to organise it later."></textarea><div class="appbtns"><button class="btn small" id="noteClaude">Organise with Claude</button><button class="btn small" id="noteDel">Delete</button><span class="small muted" id="noteSaved"></span></div></article>
+    </div>
+  </section>
+
+  <!-- CREATE (Kling) -->
+  <section class="view" id="v-create" hidden>
+    <div class="cols">
+      <article class="glass card">
+        <div class="ch"><h2>Kling video prompt builder</h2><span class="chip" data-tone="violet">Kling AI</span></div>
+        <div class="kform">
+          <label>What's in the shot<input id="kSub" value="a polished gold bar on black velvet"></label>
+          <label>What happens<input id="kAct" value="slowly rotates as light sweeps across its edges"></label>
+          <label>Camera<select id="kCam"><option>slow push-in</option><option>orbit around the subject</option><option>static locked-off shot</option><option>low-angle tilt up</option><option>handheld follow</option></select></label>
+          <label>Look<select id="kLook"><option>cinematic, high contrast, soft rim light</option><option>luxury product ad, glossy reflections</option><option>dark moody studio, single spotlight</option><option>bright clean commercial</option></select></label>
+          <label>Length<select id="kLen"><option value="5">5 seconds</option><option value="10">10 seconds</option></select></label>
+          <label>Shape<select id="kAr"><option value="9:16">9:16 TikTok / Reels</option><option value="16:9">16:9 YouTube / website</option><option value="1:1">1:1 square</option></select></label>
+        </div>
+        <pre class="kout" id="kOut"></pre>
+        <div class="appbtns"><button class="btn small gold" id="kCopy">Copy prompt</button><button class="btn small" data-app="kling">Open Kling here</button><button class="btn small" id="kClaude">Make it with Claude</button></div>
+        <p class="small muted">Tip from the Kling skill: one main camera move per 5 seconds, describe motion first, and keep text out of the shot.</p>
+      </article>
+      <article class="glass card">
+        <div class="ch"><h2>Content autopilot</h2></div>
+        <ul class="autos" id="contentAutos"></ul>
+        <div class="appbtns"><button class="btn small" data-app="tiktok">TikTok</button><button class="btn small" data-app="instagram">Instagram</button><button class="btn small" data-app="youtube">YouTube Studio</button></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- APPS -->
+  <section class="view" id="v-apps" hidden>
+    <div class="appgrid" id="appGrid"></div>
+    <div class="apptabs" id="appTabs" hidden></div>
+    <div class="appframe" id="appFrame" hidden></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section class="view" id="v-settings" hidden>
+    <article class="glass card setcard">
+      <div class="ch"><h2>Settings</h2></div>
+      <div class="setgrid">
+        <label>Your name<input id="sName"></label>
+        <label>Assistant name<input id="sAssist" placeholder="Atlas"></label>
+        <label>Voice<select id="sVoice"><option value="">Automatic</option></select></label>
+        <label>School portal (Blackboard) link<input id="sPortal" placeholder="https://…"></label>
+        <label>Broker / trading platform link<input id="sBroker" placeholder="https://…"></label>
+        <label>Telegram link<input id="sTele" placeholder="https://web.telegram.org/"></label>
+      </div>
+      <div class="appbtns"><button class="btn small gold" id="sSave">Save</button><button class="btn small" id="sExport">Back up my data</button><label class="btn small">Restore a backup<input type="file" id="sImport" accept=".json" hidden></label><button class="btn small" id="sTest">Test the voice</button></div>
+      <p class="small muted" id="sMsg">Everything is saved in this app on this computer. Back it up now and then.</p>
+    </article>
+  </section>
+</main>
+
+<script src="os-config.js"></script>
+<script src="brain.js"></script>
+<script src="data.js"></script>
+<script src="orb.js"></script>
+<script src="os-app.js"></script>
+</body>
+</html>

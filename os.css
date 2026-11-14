@@ -1,0 +1,32 @@
+/* Shared look for My OS and Atlas (same palette as the Trading Desk) */
+:root { --bg: #05060A; --bg2: #0A0D14; --panel: rgba(14,17,26,.62); --panel2: rgba(255,255,255,.035); --line: rgba(255,255,255,.08); --line2: rgba(255,255,255,.15);
+  --ink: #F5F2EA; --text: #C6CBD4; --muted: #7C8492; --gold: #F5C451; --gold2: #D99A26; --cyan: #5EEAD4; --up: #34D399; --down: #F87171; --blue: #60A5FA; --violet: #A78BFA;
+  --sans: "Geist", "Helvetica Neue", sans-serif; --mono: "Geist Mono", ui-monospace, monospace; --display: "Space Grotesk", "Geist", sans-serif;
+  --ease: cubic-bezier(0.23, 1, 0.32, 1); --ease-io: cubic-bezier(0.77, 0, 0.175, 1); }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 15px/1.5 var(--sans); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+button { font: inherit; color: inherit; }
+a { color: var(--gold); }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.eyebrow { font: 500 11px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.pos { color: var(--up); } .neg { color: var(--down); }
+.grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .05; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+.glass { background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.015)), rgba(12,14,20,.72); border: 0; border-radius: 20px; backdrop-filter: blur(18px) saturate(1.2); -webkit-backdrop-filter: blur(18px) saturate(1.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 30px 60px -30px rgba(0,0,0,.8), 0 10px 24px -16px rgba(0,0,0,.6); }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 99px; font: 600 10.5px/1.6 var(--sans); letter-spacing: .08em; text-transform: uppercase; border: 0 !important; background: rgba(255,255,255,.07); color: var(--text); white-space: nowrap; }
+.chip[data-tone="green"] { color: #6EE7B7; border-color: rgba(52,211,153,.35); background: rgba(52,211,153,.1); }
+.chip[data-tone="red"] { color: #FCA5A5; border-color: rgba(248,113,113,.35); background: rgba(248,113,113,.1); }
+.chip[data-tone="yellow"] { color: var(--gold); border-color: rgba(245,196,81,.35); background: rgba(245,196,81,.1); }
+.chip[data-tone="blue"] { color: #93C5FD; border-color: rgba(96,165,250,.35); background: rgba(96,165,250,.1); }
+.chip[data-tone="violet"] { color: #C4B5FD; border-color: rgba(167,139,250,.35); background: rgba(167,139,250,.1); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; background: rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.06); color: var(--ink); padding: 8px 14px; border-radius: 11px; cursor: pointer; font-size: 14px; font-weight: 500; text-decoration: none; transition: border-color .2s, background-color .2s, transform .12s var(--ease); }
+.btn:hover { background: rgba(255,255,255,.12); } .btn:active { transform: scale(.97); }
+.btn.gold { border: 0; color: #15100A; font-weight: 600; background: linear-gradient(135deg, #FBE29A, #F5C451 45%, #D99A26); box-shadow: 0 8px 26px rgba(245,196,81,.25); }
+.btn.small { padding: 5px 10px; font-size: 12.5px; border-radius: 9px; }
+input, select, textarea { font: 15px var(--sans); color: var(--ink); background: rgba(255,255,255,.05); border: 0; border-radius: 11px; padding: 9px 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
+input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 2px rgba(245,196,81,.45); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--up); box-shadow: 0 0 0 0 rgba(52,211,153,.6); animation: pulse 2s infinite; display: inline-block; }
+@keyframes pulse { 70% { box-shadow: 0 0 0 7px transparent; } 100% { box-shadow: 0 0 0 0 transparent; } }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); filter: blur(4px); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; } }

@@ -106,3 +106,4 @@ a { color: var(--accent); }
 .tasks li.sgroup { display: block; padding: 0; }
 .tasks li.sgroup:hover { background: none; }
 #v-trading iframe, #v-atlas iframe, #v-learn iframe { background: transparent; }
+#schoolTasks, #schoolTasks .tasks { max-height: none; overflow: visible; }

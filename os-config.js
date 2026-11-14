@@ -33,6 +33,8 @@ window.OS_AUTOMATIONS = [
   { name: 'Trades by Sci YouTube watch', when: 'Paused', what: 'Pings you when SCI posts or goes live.', domain: 'trading', status: 'paused' }
 ];
 // Atlas with Claude's own voice and brain (opens on claude.ai or in the Claude app).
-window.OS_LINKS = { atlas: 'https://claude.ai/artifact/5diSj7GA6S1ChrYZbMdmhK' };
+window.OS_LINKS = { site: 'https://yelias242.github.io/yazdan-os/' };
+// One copy only: the files in Downloads open the website instead, so two Atlases never answer at once.
+if (location.protocol === 'file:' && window.top === window) location.replace(window.OS_LINKS.site + (location.pathname.split('/').pop() || 'os.html') + location.hash);
 // The newest morning brief. The scheduled brief can overwrite this file when your Mac is on.
 window.OS_BRIEF = null;

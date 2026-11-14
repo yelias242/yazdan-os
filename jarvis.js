@@ -171,11 +171,21 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   function stopVoice() { try { if (audio) { audio.pause(); audio = null; } } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
   // Speaker: fetch the voice for each sentence as soon as it's written and play them in order.
   const cleanSay = t => t.replace(/\[\[[^\]]*\]\]/g, '').replace(/[*_#`>\[\]]/g, '').trim();
-  function ttsFetch(text) {
+  // Try the chosen voice; if that service fails, use a backup human voice instead of the robot one.
+  let ttsGood = null;
+  async function ttsFetch(text) {
     const v = VOICES.find(x => x.id === voice) || VOICES[0];
-    if (v.provider === 'browser' || !aiOK) return Promise.resolve(null);
-    const opts = v.provider === 'openai' ? { provider: 'openai', model: 'gpt-4o-mini-tts', voice: v.id, instructions: STYLE } : { provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.id };
-    return puter.ai.txt2speech(text.slice(0, 2900), opts).catch(() => null);
+    if (v.provider === 'browser' || !aiOK) return null;
+    const t = text.slice(0, 2900), tries = [];
+    if (ttsGood) tries.push(ttsGood);
+    if (v.provider === 'elevenlabs') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.id }, { provider: 'elevenlabs', model: 'eleven_multilingual_v2', voice: v.id });
+    if (v.provider === 'openai') tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: v.id, instructions: STYLE });
+    tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: 'ash', instructions: STYLE }, { provider: 'aws-polly', voice: 'Matthew', engine: 'neural' });
+    for (const o of tries) {
+      if (ttsGood && o !== ttsGood && o.voice !== v.id && ttsGood.voice === v.id) continue;
+      try { const a = await puter.ai.txt2speech(t, o); if (a) { if (o.voice === v.id || !ttsGood) ttsGood = o; return a; } } catch (e) {}
+    }
+    return null;
   }
   function Speaker() {
     let used = 0, chain = Promise.resolve(), stopped = false, any = false;
@@ -239,7 +249,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#auto').addEventListener('click', () => { auto = !auto; ls.set('atlas_auto', auto); paintAuto(); });
   document.addEventListener('click', e => {
     const s = e.target.closest('[data-say]'); if (s) { ask(s.dataset.say); return; }
-    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice3', voice); renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
+    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice3', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { stopVoice(); if (rec) try { rec.abort(); } catch (x) {} setState('idle'); return; }

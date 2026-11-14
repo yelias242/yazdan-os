@@ -40,6 +40,7 @@
   }
 
   /* ---------------- the galaxy ---------------- */
+  let G3 = null;
   const Sky = (() => {
     const c = $('#sky'), g = c.getContext('2d'), still = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const N = innerWidth < 900 ? 5200 : 9000, ARMS = 2, Pp = [], STARS = [];
@@ -73,9 +74,85 @@
         const z = (core > .8 ? 1.7 : p.b > .93 ? 1.6 : .95) * dpr; g.fillRect(x - z / 2, y - z / 2, z, z);
       }
     }
-    function loop(now) { draw(now); if (!still) requestAnimationFrame(loop); }
+    let dead = false;
+    function loop(now) { if (dead) return; draw(now); if (!still) requestAnimationFrame(loop); }
     addEventListener('resize', size); size(); requestAnimationFrame(loop);
-    return { set(s) { st = T[s] ? s : 'idle'; if (still) draw(performance.now()); }, pulse(v) { pulse = Math.min(1.4, pulse + (v || .5)); } };
+    return { set(s) { st = T[s] ? s : 'idle'; if (G3) G3.set(st); if (still && !dead) draw(performance.now()); }, pulse(v) { pulse = Math.min(1.4, pulse + (v || .5)); if (G3) G3.pulse(v); }, kill() { dead = true; c.style.display = 'none'; } };
+  })();
+
+
+  /* ---------------- the 3D galaxy (three.js) ----------------
+     A tilted spiral galaxy of ~60k glowing particles, warm core to teal to violet arms, with a starfield,
+     a slow camera drift and mouse parallax. It spins faster while working, brightens while listening
+     and pulses with each word while speaking. Falls back to the flat galaxy if WebGL isn't available. */
+  (async () => {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    let THREE; try { THREE = await import('https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js'); } catch (e) { return; }
+    const canvas = document.createElement('canvas'); canvas.id = 'sky3'; canvas.setAttribute('aria-hidden', 'true');
+    canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0';
+    $('#sky').after(canvas);
+    let renderer; try { renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' }); } catch (e) { canvas.remove(); return; }
+    const dpr = Math.min(2, devicePixelRatio || 1); renderer.setPixelRatio(dpr);
+    const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(42, 1, .1, 200);
+    const N = innerWidth < 900 ? 26000 : 60000, R = 5, ARMS = 3;
+    const pos = new Float32Array(N * 3), rnd = new Float32Array(N * 3), col = new Float32Array(N * 3), scl = new Float32Array(N);
+    const cIn = new THREE.Color('#ffe2b0'), cMid = new THREE.Color('#38e8d2'), cOut = new THREE.Color('#7a5cff'), tmp = new THREE.Color();
+    for (let i = 0; i < N; i++) {
+      const r = Math.pow(Math.random(), 1.1) * R, arm = (i % ARMS) / ARMS * Math.PI * 2, spin = r * 1.05;
+      pos[i * 3] = Math.cos(arm + spin) * r; pos[i * 3 + 1] = 0; pos[i * 3 + 2] = Math.sin(arm + spin) * r;
+      const k = .32 * r + .15, rr = () => Math.pow(Math.random(), 3) * (Math.random() < .5 ? 1 : -1) * k;
+      rnd[i * 3] = rr(); rnd[i * 3 + 1] = rr() * .45; rnd[i * 3 + 2] = rr();
+      const t = r / R; if (t < .45) tmp.copy(cIn).lerp(cMid, t / .45); else tmp.copy(cMid).lerp(cOut, (t - .45) / .55);
+      col[i * 3] = tmp.r; col[i * 3 + 1] = tmp.g; col[i * 3 + 2] = tmp.b; scl[i] = Math.random();
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('aRandom', new THREE.BufferAttribute(rnd, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('aScale', new THREE.BufferAttribute(scl, 1));
+    const U = { uRot: { value: 0 }, uTime: { value: 0 }, uSize: { value: 44 * dpr }, uPulse: { value: 0 }, uGlow: { value: .8 } };
+    const mat = new THREE.ShaderMaterial({ uniforms: U, vertexColors: true, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+      vertexShader: `uniform float uRot, uTime, uSize, uPulse; attribute float aScale; attribute vec3 aRandom; varying vec3 vColor; varying float vA;
+        void main(){ vec4 mp = modelMatrix * vec4(position, 1.0); float d = length(mp.xz); float a = atan(mp.z, mp.x) + uRot / (d * .55 + .35);
+          mp.x = cos(a) * d; mp.z = sin(a) * d; mp.xyz += aRandom * (1.0 + uPulse * .25);
+          vec4 vp = viewMatrix * mp; gl_Position = projectionMatrix * vp;
+          gl_PointSize = uSize * (.35 + aScale) * (1.0 + uPulse * .5) / -vp.z;
+          vColor = color; vA = .55 + .45 * sin(uTime * 2.2 + aScale * 40.0); }`,
+      fragmentShader: `uniform float uGlow; varying vec3 vColor; varying float vA;
+        void main(){ float d = distance(gl_PointCoord, vec2(.5)); float s = pow(max(0.0, 1.0 - d * 2.0), 2.4); gl_FragColor = vec4(vColor * s * (1.3 + uGlow * 1.2), s * vA); }` });
+    const galaxy = new THREE.Points(geo, mat); scene.add(galaxy);
+    // core glow
+    const gc = document.createElement('canvas'); gc.width = gc.height = 128; const gx = gc.getContext('2d'), gr = gx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    gr.addColorStop(0, 'rgba(255,240,215,1)'); gr.addColorStop(.25, 'rgba(255,200,140,.45)'); gr.addColorStop(.6, 'rgba(120,200,255,.08)'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    gx.fillStyle = gr; gx.fillRect(0, 0, 128, 128);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), blending: THREE.AdditiveBlending, depthWrite: false, transparent: true })); glow.scale.set(3.4, 3.4, 1); scene.add(glow);
+    // background stars
+    const SN = 1800, sp = new Float32Array(SN * 3);
+    for (let i = 0; i < SN; i++) { const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, rr = 40 + Math.random() * 40, q = Math.sqrt(1 - u * u); sp[i * 3] = q * Math.cos(th) * rr; sp[i * 3 + 1] = u * rr; sp[i * 3 + 2] = q * Math.sin(th) * rr; }
+    const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
+    const stars = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 1.3 * dpr, sizeAttenuation: false, transparent: true, opacity: .7, depthWrite: false })); scene.add(stars);
+    const TT = { idle: [.12, .8], listening: [.16, 1.15], thinking: [.55, 1], speaking: [.16, 1.2], error: [.06, .45] };
+    let st = 'idle', spin = .12, gl = .8, pulse = 0, mx = 0, my = 0, last = 0, nextSyl = 0, W = 1, H = 1;
+    addEventListener('pointermove', e => { mx = e.clientX / innerWidth - .5; my = e.clientY / innerHeight - .5; });
+    function fit() {
+      W = canvas.clientWidth; H = canvas.clientHeight; renderer.setSize(W, H, false); camera.aspect = W / H;
+      const b = $('#core').getBoundingClientRect(), cr = canvas.getBoundingClientRect(), cx = b.left + b.width / 2 - cr.left, cy = b.top + b.height / 2 - cr.top;
+      const want = Math.max(160, Math.min(b.width, b.height)), dist = (2 * R * .82) * H / want / (2 * Math.tan(THREE.MathUtils.degToRad(21)));
+      camera.userData.dist = dist; camera.setViewOffset(W, H, W / 2 - cx, H / 2 - cy, W, H); camera.updateProjectionMatrix();
+    }
+    addEventListener('resize', fit); new ResizeObserver(fit).observe($('#core')); fit();
+    function frame(now) {
+      requestAnimationFrame(frame); if (document.hidden) return;
+      const dt = last ? Math.min(.05, (now - last) / 1000) : 0; last = now; const t = now / 1000, [ts, tg] = TT[st] || TT.idle, e = 1 - Math.pow(.002, dt);
+      spin += (ts - spin) * e; gl += (tg - gl) * e; pulse *= Math.pow(.03, dt);
+      if (st === 'speaking' && t > nextSyl) { pulse = Math.min(1.4, pulse + .4 + Math.random() * .5); nextSyl = t + .1 + Math.random() * .16; }
+      if (st === 'listening' && t > nextSyl) { pulse = Math.min(.7, pulse + .1 + Math.random() * .12); nextSyl = t + .3 + Math.random() * .3; }
+      U.uRot.value += spin * dt; U.uTime.value = t; U.uPulse.value = pulse; U.uGlow.value = gl;
+      const d = camera.userData.dist || 14, ang = .55 + Math.sin(t * .05) * .06 + my * .18, yaw = t * .02 + mx * .35;
+      camera.position.set(Math.sin(yaw) * Math.cos(ang) * d, Math.sin(ang) * d, Math.cos(yaw) * Math.cos(ang) * d); camera.lookAt(0, 0, 0);
+      glow.scale.setScalar(3.2 + pulse * .9 + (gl - .8) * 1.2); stars.rotation.y = t * .004;
+      renderer.render(scene, camera);
+    }
+    G3 = { set(s) { st = TT[s] ? s : 'idle'; }, pulse(v) { pulse = Math.min(1.4, pulse + (v || .5)); } };
+    G3.set(state); Sky.kill(); requestAnimationFrame(frame);
   })();
 
   /* ---------------- panels ---------------- */

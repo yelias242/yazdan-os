@@ -3,12 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#05060A">
+<meta name="theme-color" content="#04050A">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Atlas">
 <title>My OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=Big+Shoulders+Display:wght@200;300;400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="os.css">
 <link rel="stylesheet" href="os-app.css">
+<link rel="stylesheet" href="space-skin.css">
 </head>
 <body>
 <div class="bgfx" aria-hidden="true"><i></i><i></i></div>
@@ -19,10 +21,11 @@
   <a href="#home" data-v="home" title="Home"><svg viewBox="0 0 24 24"><path d="M4 11l8-6 8 6v8a1 1 0 01-1 1h-4v-6h-6v6H5a1 1 0 01-1-1z"/></svg><span>Home</span></a>
   <a href="#atlas" data-v="atlas" title="Atlas voice"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/></svg><span>Atlas</span></a>
   <a href="#trading" data-v="trading" title="Trading Desk"><svg viewBox="0 0 24 24"><path d="M4 17l5-6 4 3 7-8"/><path d="M15 6h5v5"/></svg><span>Trading</span></a>
-  <a href="#charts" data-v="charts" title="TradingView charts"><svg viewBox="0 0 24 24"><path d="M6 4v16M6 8h-2v6h2M12 6v12M12 9h-2v5h2M18 5v14M18 7h-2v8h2"/></svg><span>Charts</span></a>
+  <a href="#charts" data-v="charts" hidden title="TradingView charts"><svg viewBox="0 0 24 24"><path d="M6 4v16M6 8h-2v6h2M12 6v12M12 9h-2v5h2M18 5v14M18 7h-2v8h2"/></svg><span>Charts</span></a>
   <a href="#school" data-v="school" title="School"><svg viewBox="0 0 24 24"><path d="M3 9l9-4 9 4-9 4z"/><path d="M7 11v4c1.5 1.5 3 2 5 2s3.5-.5 5-2v-4"/></svg><span>School</span></a>
-  <a href="#vault" data-v="vault" title="Notes"><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg><span>Vault</span></a>
-  <a href="#create" data-v="create" title="Create with Kling"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Create</span></a>
+  <a href="#vault" data-v="vault" hidden title="Notes"><svg viewBox="0 0 24 24"><path d="M5 4h10l4 4v12H5z"/><path d="M15 4v4h4M8 12h8M8 16h6"/></svg><span>Vault</span></a>
+  <a href="#create" data-v="create" hidden title="Create with Kling"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="M16 10l5-3v10l-5-3"/></svg><span>Create</span></a>
+  <a href="#learn" data-v="learn" title="Learn"><svg viewBox="0 0 24 24"><path d="M4 6.5C6.5 5 9.5 5 12 6.5 14.5 5 17.5 5 20 6.5V18c-2.5-1.5-5.5-1.5-8 0-2.5-1.5-5.5-1.5-8 0z"/><path d="M12 6.5V18"/></svg><span>Learn</span></a>
   <a href="#apps" data-v="apps" title="Apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg><span>Apps</span></a>
   <a href="#settings" data-v="settings" class="rail-end" title="Settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg><span>Settings</span></a>
 </nav>
@@ -55,6 +58,11 @@
       <article class="glass card k-mkt" data-go="trading"><span class="eyebrow">Markets</span><div class="mk"><span>Gold</span><b class="mono" id="hGold">-</b></div><small id="hGoldW">-</small><div class="mk"><span>Bitcoin</span><b class="mono" id="hBtc">-</b></div><small id="hBtcW">-</small></article>
       <article class="glass card k-acct" data-go="trading"><span class="eyebrow">Demo account</span><b class="big mono" id="hBal">-</b><span id="hOpen">-</span><span class="chip" id="hAuto">Autopilot off</span></article>
       <article class="glass card k-ready"><span class="eyebrow">Ready for real money</span><div class="minring" id="hRing"></div><span id="hReadyV">-</span></article>
+    </div>
+
+    <div class="cols">
+      <article class="glass card"><div class="ch"><h2>Due next</h2><a class="eyebrow" href="#school">All school →</a></div><ul class="duelist" id="dueNext"></ul></article>
+      <article class="glass card"><div class="ch"><h2>Today's classes</h2><span class="eyebrow" id="clsDay"></span></div><ul class="duelist" id="todayCls"></ul></article>
     </div>
 
     <article class="glass card wide">
@@ -92,6 +100,8 @@
   <section class="view frameview" id="v-atlas" hidden><iframe title="Atlas" data-src="jarvis.html" allow="microphone; autoplay"></iframe></section>
   <section class="view frameview" id="v-trading" hidden><iframe title="Trading Desk" data-src="index.html#gold" allow="microphone; clipboard-write"></iframe></section>
 
+  <section class="view frameview" id="v-learn" hidden><iframe title="Learn" data-src="index.html#learn" allow="microphone"></iframe></section>
+
   <!-- CHARTS -->
   <section class="view" id="v-charts" hidden>
     <div class="chartbar"><div class="seg" id="chartSym"><button data-s="OANDA:XAUUSD" aria-pressed="true">Gold</button><button data-s="COINBASE:BTCUSD">Bitcoin</button><button data-s="both">Both</button></div><div class="seg" id="chartIv"><button data-i="15">15m</button><button data-i="60" aria-pressed="true">1h</button><button data-i="240">4h</button><button data-i="D">1D</button></div><button type="button" class="btn small" id="chartAnalyze">Analyze on the desk</button></div>
@@ -121,7 +131,7 @@
       </article>
     </div>
     <article class="glass card">
-      <div class="ch"><h2>School tasks</h2></div>
+      <div class="ch"><h2>Assignments</h2><span class="eyebrow">Missed · this week · next week</span></div>
       <ul class="tasks" id="schoolTasks"></ul>
     </article>
   </section>
@@ -189,5 +199,6 @@
 <script src="data.js"></script>
 <script src="orb.js"></script>
 <script src="os-app.js"></script>
+<script type="module" src="galaxy-bg.js"></script>
 </body>
 </html>

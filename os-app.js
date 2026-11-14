@@ -4,8 +4,8 @@
   const B = window.Brain, $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const IN_APP = !!(window.osApp && window.osApp.electron);
-  const VIEWS = ['home', 'atlas', 'trading', 'charts', 'school', 'vault', 'create', 'apps', 'settings'];
-  const TITLES = { home: 'Home', atlas: 'Atlas', trading: 'Trading Desk', charts: 'Charts', school: 'School', vault: 'Vault', create: 'Create', apps: 'Apps', settings: 'Settings' };
+  const VIEWS = ['home', 'atlas', 'trading', 'learn', 'charts', 'school', 'vault', 'create', 'apps', 'settings'];
+  const TITLES = { learn: 'Learn', home: 'Home', atlas: 'Atlas', trading: 'Trading Desk', charts: 'Charts', school: 'School', vault: 'Vault', create: 'Create', apps: 'Apps', settings: 'Settings' };
   const S = Object.assign({ portal: '', broker: '', tele: 'https://web.telegram.org/a/' }, B.ls.get('os_links', {}));
   let homeOrb = null;
 
@@ -24,6 +24,18 @@
     if (v === 'apps') renderApps();
     if (v === 'settings') renderSettings();
     if (v === 'home') renderHome();
+    // panels slide in one after another
+    $$('#v-' + v + ' > *, #v-' + v + ' > .cols > *, #v-' + v + ' > .cards4 > *').forEach((el, i) => { el.classList.remove('stg'); void el.offsetWidth; el.style.setProperty('--i', i); el.classList.add('stg'); });
+  }
+  // numbers count up
+  function countUp(el, text) {
+    if (!el) return; const m = String(text).match(/^(\D*)([\d,]+(?:\.\d+)?)(.*)$/);
+    if (!m || matchMedia('(prefers-reduced-motion: reduce)').matches) { el.textContent = text; return; }
+    const target = parseFloat(m[2].replace(/,/g, '')), dec = (m[2].split('.')[1] || '').length, t0 = performance.now(), D = 900;
+    if (el.dataset.shown === text) return; el.dataset.shown = text;
+    const step = now => { const k = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - k, 3), v = target * e;
+      el.textContent = m[1] + v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3]; if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
   }
 
   /* ---------------- opening things inside ---------------- */
@@ -86,12 +98,19 @@
     $('#goals').innerHTML = goals.map(g => `<div class="goal"><span>${esc(g.text)}</span><span>${Math.min(g.p, g.target)}/${g.target}</span><div class="gbar"><i style="--w:${Math.min(1, g.p / g.target)}"></i></div></div>`).join('');
     // cards
     const T = B.trading(), snap = T.snap, r = B.readiness();
-    $('#hBal').textContent = B.usd(snap && snap.equity ? snap.equity : T.book.balance);
+    countUp($('#hBal'), B.usd(snap && snap.equity ? snap.equity : T.book.balance));
     $('#hOpen').textContent = `${(T.book.pos || []).length} open · ${T.mine.length} trades by hand`;
     $('#hAuto').textContent = T.auto.on ? 'Autopilot on' : 'Autopilot off'; $('#hAuto').dataset.tone = T.auto.on ? 'green' : '';
     $('#hGoldW').textContent = snap && snap.gold ? snap.gold.word : 'Open the desk for the call'; $('#hBtcW').textContent = snap && snap.btc ? snap.btc.word : '-';
     const C = 2 * Math.PI * 30; $('#hRing').innerHTML = `<svg viewBox="0 0 74 74"><circle class="t" cx="37" cy="37" r="30"/><circle class="f" cx="37" cy="37" r="30" style="stroke-dasharray:${C};stroke-dashoffset:${C * (1 - r.score / 100)}"/></svg><b>${r.score}</b>`;
     $('#hReadyV').textContent = r.verdict;
+    // due next (missed in red) and today's classes
+    const all = B.M.tasks().filter(t => !t.done && t.due).sort((a, b) => a.due.localeCompare(b.due)), lateL = all.filter(t => t.due < z.date), soonL = all.filter(t => t.due >= z.date);
+    const dl = d => d === z.date ? 'today' : d === B.dateAdd(z.date, 1) ? 'tomorrow' : new Date(d + 'T12:00:00').toLocaleDateString('en-CA', { weekday: 'short', month: 'short', day: 'numeric' }).replace(/\./g, '');
+    const nx = lateL.slice(0, 3).map(t => [t, true]).concat(soonL.map(t => [t, false])).slice(0, Math.max(3, Math.min(5, lateL.length + 2)));
+    $('#dueNext').innerHTML = nx.length ? nx.map(([t, l]) => `<li class="${l ? 'late' : ''}"><span>${esc(t.text.replace(/^Missed: /, ''))}</span><small>${l ? 'missed · ' : ''}${dl(t.due)}</small></li>`).join('') : '<li><span>Nothing due. Nice.</span><small></small></li>';
+    const evAll = B.eventsOn(z.date); $('#clsDay').textContent = B.DAYS[z.wd];
+    $('#todayCls').innerHTML = evAll.length ? evAll.map(e => `<li class="${z.m >= e.e ? 'past' : ''}"><span>${esc(e.title)}${e.optional ? ' (optional)' : ''}</span><small>${B.fmtHM(e.s)} – ${B.fmtHM(e.e)}</small></li>`).join('') : `<li><span>No classes today.</span><small>${(B.nextEvent() || {}).title ? 'next: ' + esc(B.nextEvent().title) : ''}</small></li>`;
     renderTimeline(); renderTasks(); renderFeed(); renderSkills(); renderAutos(); tickNext();
   }
   function tickNext() {
@@ -161,8 +180,9 @@
     html += `<div class="hours">${[8, 10, 12, 14, 16, 18, 20].map(hh => `<span style="top:${y(hh * 60)}px">${hh > 12 ? hh - 12 : hh}${hh < 12 ? 'a' : 'p'}</span>`).join('')}</div>`;
     html += days.map(d => `<div class="col">${sched.filter(e => e.days.includes(d)).map(e => { const s = B.toMin(e.start), en = B.toMin(e.end); return `<div class="cls${e.optional ? ' opt' : ''}" data-k="${e.kind}" data-id="${e.id}" style="top:${y(s)}px;height:${Math.max(22, y(en) - y(s))}px" title="Click to remove">${esc(e.title)}<small>${B.fmtHM(s)}–${B.fmtHM(en)}</small></div>`; }).join('')}${d === z.wd && z.m > S0 && z.m < S1 ? `<i class="nowl" style="top:${y(z.m)}px"></i>` : ''}</div>`).join('');
     $('#week').innerHTML = html;
-    const st = B.M.tasks().filter(t => t.domain === 'school');
-    $('#schoolTasks').innerHTML = st.length ? st.map(taskHTML).join('') : '<li class="muted small">No school tasks yet. Add one on Home or say "add task anatomy notes by Monday".</li>';
+    const st = B.M.tasks().filter(t => t.domain === 'school'), wkEnd = B.dateAdd(z.date, (7 - z.wd) % 7), nxEnd = B.dateAdd(wkEnd, 7);
+    const G = [['Missed', st.filter(t => !t.done && t.due && t.due < z.date), 'late'], ['This week', st.filter(t => !t.done && t.due && t.due >= z.date && t.due <= wkEnd), ''], ['Next week', st.filter(t => !t.done && t.due && t.due > wkEnd && t.due <= nxEnd), ''], ['Later', st.filter(t => !t.done && (!t.due || t.due > nxEnd)), ''], ['Done', st.filter(t => t.done), '']];
+    $('#schoolTasks').innerHTML = st.length ? G.filter(g => g[1].length).map(([h, L, cls]) => `<li class="sgroup ${cls}"><h3>${h} · ${L.length}</h3><ul class="tasks">${L.sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).map(taskHTML).join('')}</ul></li>`).join('') : '<li class="muted small">No school tasks yet. Add one on Home or say "add task anatomy notes by Monday".</li>';
     $('#portalNote').textContent = S.portal ? 'Your school portal opens inside the app.' : 'Add your Blackboard link in Settings and it opens right here.';
   }
   let pomo = { left: 1500, run: false, work: true, t: null };

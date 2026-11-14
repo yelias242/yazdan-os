@@ -12,14 +12,17 @@
   /* ---------------- voices ---------------- */
   // OpenAI and ElevenLabs voices through Puter sound like real people; the Mac voice is the last resort.
   // ElevenLabs voices are the ones the Jarvis builders on TikTok use (George is the warm British one).
+  // Kokoro voices run inside your own browser: free, no account, no limits. They're the default.
   const VOICES = [
-    { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George · British', provider: 'elevenlabs' }, { id: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel · British', provider: 'elevenlabs' },
+    { id: 'k:bm_george', label: 'George · British · free', provider: 'kokoro' }, { id: 'k:bm_fable', label: 'Fable · British · free', provider: 'kokoro' },
+    { id: 'k:bf_emma', label: 'Emma · British · free', provider: 'kokoro' }, { id: 'k:af_heart', label: 'Heart · free', provider: 'kokoro' },
+    { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George · ElevenLabs', provider: 'elevenlabs' }, { id: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel · ElevenLabs', provider: 'elevenlabs' },
     { id: 'nPczCjzI2devNBz1zQrb', label: 'Brian', provider: 'elevenlabs' }, { id: 'cgSgspJ2msm6clMCkdW9', label: 'Jessica', provider: 'elevenlabs' },
     { id: 'ash', label: 'Ash', provider: 'openai' }, { id: 'coral', label: 'Coral', provider: 'openai' },
     { id: 'mac', label: 'Mac voice', provider: 'browser' }
   ];
   const STYLE = 'Talk like a relaxed, warm friend in a casual conversation: natural pace, real emotion, small pauses, a little smile in your voice when joking. Never sound like a narrator reading text.';
-  let voice = ls.get('atlas_voice3', 'JBFqnCBsd6RMkjVDRZzb'), talkMode = ls.get('atlas_talkmode', true), auto = ls.get('atlas_auto', true);
+  let voice = ls.get('atlas_voice4', 'k:bm_george'), talkMode = ls.get('atlas_talkmode', true), auto = ls.get('atlas_auto', true);
   function renderVoices() { $('#voices').innerHTML = VOICES.map(v => `<button type="button" data-voice="${v.id}" aria-pressed="${v.id === voice}">${esc(v.label)}</button>`).join(''); }
 
   /* ---------------- state + display ---------------- */
@@ -206,6 +209,8 @@
       `Live prices: gold ${prices.gold ? '$' + prices.gold.toFixed(2) : 'unknown'}, Bitcoin ${prices.btc ? '$' + Math.round(prices.btc) : 'unknown'}. Gold market ${B.goldOpen(z) ? 'open' : 'closed (it trades Sunday 6 PM to Friday 5 PM Eastern)'}.`,
       snap ? `Trading desk calls: gold says "${snap.gold ? snap.gold.word : '?'}", Bitcoin says "${snap.btc ? snap.btc.word : '?'}".` : '',
       `His tested strategies: Quiet Breakout (gold 1 hour), Gold Trend and Bitcoin Trend Rider (4 hour, buys only), London Breakout (weak edge).`,
+      window.OS_ABOUT ? `About him (he wrote this):\n${window.OS_ABOUT}` : '',
+      news.length ? `Today's news headlines (Google News Canada): ${news.join(' | ')}` : '',
       `Things he has told you before: ${mem.join('; ') || 'nothing yet'}.`].filter(Boolean).join('\n');
   }
   const SYSTEM = `You are Atlas, Yazdan's own AI and a friend in his corner. He's a denturism student at Georgian College in Toronto who is learning to trade gold and Bitcoin on a demo account.
@@ -220,7 +225,37 @@ Use the facts below; if something isn't there, say you don't know. Be honest abo
 Actions: to add something to his to-do list, end your reply with a line [[ADD: short title | YYYY-MM-DD]]. To remember a fact he tells you about himself, end with [[REMEMBER: the fact]]. Mention what you did in a few words.`;
   const textOf = r => { if (r == null) return ''; if (typeof r === 'string') return r; const c = r.message && r.message.content; if (typeof c === 'string') return c; if (Array.isArray(c)) return c.map(x => x.text || '').join(''); return String(r.text || r); };
   // Streams the reply; onText gets the text so far. Remembers which model worked last time.
+  let news = [], newsAt = 0;
+  async function getNews() {
+    if (Date.now() - newsAt < 20 * 60e3 && news.length) return;
+    try {
+      const f = (window.puter && puter.net && puter.net.fetch) ? puter.net.fetch : null; if (!f) return;
+      const r = await f('https://news.google.com/rss?hl=en-CA&gl=CA&ceid=CA:en'); const x = await r.text();
+      news = [...x.matchAll(/<item>[\s\S]*?<title>([\s\S]*?)<\/title>/g)].slice(0, 10).map(m => m[1].replace(/<!\[CDATA\[|\]\]>/g, '').replace(/&amp;/g, '&').replace(/&#39;/g, "'").replace(/&quot;/g, '"').trim()); newsAt = Date.now();
+    } catch (e) {}
+  }
+  // Free offline brain: an open AI model (Llama 3.2, about 2 GB, downloaded once) running on your own computer's chip.
+  // Used when Puter isn't connected or its free allowance runs out. Only after you turn it on.
+  let local = null, localLoading = null;
+  let gpuOK = false; const canLocal = () => gpuOK;
+  (async () => { try { gpuOK = !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e) {} const b = document.getElementById('offline'); if (b) b.hidden = !gpuOK; })();
+  function loadLocal() {
+    if (!localLoading) localLoading = (async () => {
+      const w = await import('https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.79/+esm');
+      local = await w.CreateMLCEngine('Llama-3.2-3B-Instruct-q4f16_1-MLC', { initProgressCallback: p => { $('#aiTxt').textContent = 'Downloading the free offline brain… ' + Math.round((p.progress || 0) * 100) + '% (one time only)'; } });
+      $('#aiTxt').textContent = aiOK ? 'AI connected (Puter, free) · offline brain ready' : 'Offline brain ready (free, runs on this computer)'; return local;
+    })().catch(e => { localLoading = null; $('#aiTxt').textContent = 'The offline brain needs Chrome on a Mac or PC with a modern graphics chip.'; throw e; });
+    return localLoading;
+  }
+  async function thinkLocal(text, onText) {
+    const eng = local || await loadLocal();
+    const msgs = [{ role: 'system', content: SYSTEM + '\n\nFACTS\n' + knowledge() }].concat(chat.slice(-8).map(m => ({ role: m.role, content: m.content })));
+    const r = await eng.chat.completions.create({ messages: msgs, stream: true, temperature: .8, max_tokens: 300 }); let out = '';
+    for await (const c of r) { const t = c.choices[0] && c.choices[0].delta && c.choices[0].delta.content || ''; if (t) { out += t; onText && onText(out); } }
+    return out.trim();
+  }
   async function think(text, onText) {
+    if (/news|headline|happening|going on in the world/i.test(text)) await getNews();
     if (!aiOK && hasPuter()) await checkAI();
     if (aiOK) {
       const msgs = [{ role: 'system', content: SYSTEM + '\n\nFACTS\n' + knowledge() }].concat(chat.slice(-14).map(m => ({ role: m.role, content: m.content })));
@@ -235,7 +270,8 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
         } catch (e) { if (e && /sign|auth|401/i.test(String(e.message || e))) { aiOK = false; break; } }
       }
     }
-    const r = B.route(text); const out = r.text + (aiOK ? '' : ' (Connect the AI on the right so I can really chat with you.)'); onText && onText(out); return out;
+    if (ls.get('atlas_local', false) && canLocal()) { try { const o = await thinkLocal(text, onText); if (o) return o; } catch (e) {} }
+    const r = B.route(text); const out = r.text + (aiOK ? '' : ' (Connect the AI on the right, or turn on the free offline brain, so I can really chat with you.)'); onText && onText(out); return out;
   }
   function actions(reply) {
     let out = reply;
@@ -250,11 +286,36 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   const cleanSay = t => t.replace(/\[\[[^\]]*\]\]/g, '').replace(/[*_#`>\[\]]/g, '').trim();
   // Try the chosen voice; if that service fails, use a backup human voice instead of the robot one.
   let ttsGood = null;
+  // Kokoro: a free open-source voice model (about 90 MB, downloaded once, then cached by the browser).
+  let kokoro = null, kokoroLoading = null, kChain = Promise.resolve(), kokoroFast = innerWidth >= 900;
+  function loadKokoro() {
+    if (!kokoroLoading) kokoroLoading = (async () => {
+      const { KokoroTTS } = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
+      let gpu = false; try { gpu = innerWidth >= 900 && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e) {}
+      kokoroFast = gpu;
+      kokoro = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm' });
+      return kokoro;
+    })().catch(e => { kokoroLoading = null; throw e; });
+    return kokoroLoading;
+  }
+  function kokoroSay(text, kv) { // one sentence at a time, in order
+    const job = kChain.then(async () => { const k = kokoro || await loadKokoro(); const a = await k.generate(text, { voice: kv }); return new Audio(URL.createObjectURL(a.toBlob())); });
+    kChain = job.catch(() => {}); return job;
+  }
+  window.AtlasKokoro = { load: loadKokoro, say: kokoroSay };
   async function ttsFetch(text) {
     const v = VOICES.find(x => x.id === voice) || VOICES[0];
-    if (v.provider === 'browser' || !aiOK) return null;
+    if (v.provider === 'browser') return null;
+    if (v.provider === 'kokoro') {
+      // free voice first; while it's still downloading the first time, borrow the Puter voice so you never hear the robot
+      // fast computers: free voice first. Phones (slower): Puter's free voice first while it lasts, then Kokoro.
+      if ((kokoro && kokoroFast) || !aiOK) { try { return await kokoroSay(text, v.id.slice(2)); } catch (e) { if (!aiOK) return null; } }
+      else if (!kokoro) loadKokoro().catch(() => {});
+    }
+    if (!aiOK) return null;
     const t = text.slice(0, 2900), tries = [];
     if (ttsGood) tries.push(ttsGood);
+    if (v.provider !== 'openai') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.provider === 'elevenlabs' ? v.id : 'JBFqnCBsd6RMkjVDRZzb' });
     if (v.provider === 'elevenlabs') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.id }, { provider: 'elevenlabs', model: 'eleven_multilingual_v2', voice: v.id });
     if (v.provider === 'openai') tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: v.id, instructions: STYLE });
     tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: 'ash', instructions: STYLE }, { provider: 'aws-polly', voice: 'Matthew', engine: 'neural' });
@@ -262,6 +323,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
       if (ttsGood && o !== ttsGood && o.voice !== v.id && ttsGood.voice === v.id) continue;
       try { const a = await puter.ai.txt2speech(t, o); if (a) { if (o.voice === v.id || !ttsGood) ttsGood = o; return a; } } catch (e) {}
     }
+    if (v.provider === 'kokoro') { try { return await kokoroSay(text, v.id.slice(2)); } catch (e) {} }
     return null;
   }
   function Speaker() {
@@ -319,6 +381,13 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#talk').addEventListener('click', () => $('#core').click());
   $('#bar').addEventListener('submit', e => { e.preventDefault(); const v = $('#inp').value.trim(); if (v) { $('#inp').value = ''; ask(v); } });
   $('#connect').addEventListener('click', connect);
+  // free offline brain switch (only on computers that can run it)
+  const offBtn = $('#offline'); offBtn.hidden = !canLocal();
+  const offLbl = () => { const on = ls.get('atlas_local', false); offBtn.textContent = on ? 'Offline brain: on' : 'Free offline brain'; offBtn.setAttribute('aria-pressed', on); };
+  offBtn.addEventListener('click', () => { const on = !ls.get('atlas_local', false); ls.set('atlas_local', on); offLbl(); if (on) loadLocal().catch(() => {}); });
+  offLbl(); if (ls.get('atlas_local', false) && canLocal()) setTimeout(() => loadLocal().catch(() => {}), 4000);
+  // get the free voice ready early (desktop right away, phone on first tap)
+  if ((VOICES.find(x => x.id === voice) || {}).provider === 'kokoro') { if (innerWidth >= 900) setTimeout(() => loadKokoro().catch(() => {}), 1500); else addEventListener('pointerdown', () => loadKokoro().catch(() => {}), { once: true }); }
   $('#clear').addEventListener('click', () => { chat = []; ls.set('atlas_chat2', chat); renderChat(); });
   $('#mTalk').addEventListener('click', () => { talkMode = true; ls.set('atlas_talkmode', true); $('#mTalk').classList.add('on'); $('#mType').classList.remove('on'); });
   $('#mType').addEventListener('click', () => { talkMode = false; ls.set('atlas_talkmode', false); stopVoice(); $('#mType').classList.add('on'); $('#mTalk').classList.remove('on'); });
@@ -326,7 +395,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#auto').addEventListener('click', () => { auto = !auto; ls.set('atlas_auto', auto); paintAuto(); });
   document.addEventListener('click', e => {
     const s = e.target.closest('[data-say]'); if (s) { ask(s.dataset.say); return; }
-    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice3', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
+    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice4', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { stopVoice(); if (rec) try { rec.abort(); } catch (x) {} setState('idle'); return; }

@@ -61,15 +61,15 @@ body { min-height: 100dvh; }
 .wide { margin-bottom: 14px; }
 .timeline { position: relative; height: 64px; border-radius: 12px; background: rgba(255,255,255,.03); border: 1px solid var(--line); overflow: hidden; }
 .timeline .blk { position: absolute; top: 8px; bottom: 22px; border-radius: 7px; padding: 3px 7px; font-size: 11px; color: #0B0E14; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.timeline .blk[data-k="school"] { background: linear-gradient(180deg, #93C5FD, #60A5FA); } .timeline .blk[data-k="work"] { background: linear-gradient(180deg, #C4B5FD, #A78BFA); } .timeline .blk[data-k="gym"], .timeline .blk[data-k="other"] { background: linear-gradient(180deg, #D1D5DB, #9CA3AF); }
-.timeline .blk.opt { opacity: .55; background: repeating-linear-gradient(135deg, #60A5FA 0 6px, #3B82F6 6px 12px); }
+.timeline .blk[data-k="school"] { background: linear-gradient(180deg, #BFF7EE, #4FE3CF); } .timeline .blk[data-k="work"] { background: linear-gradient(180deg, #C4B5FD, #A78BFA); } .timeline .blk[data-k="gym"], .timeline .blk[data-k="other"] { background: linear-gradient(180deg, #D1D5DB, #9CA3AF); }
+.timeline .blk.opt { opacity: .55; background: repeating-linear-gradient(135deg, #4FE3CF 0 6px, #2CB8A6 6px 12px); }
 .timeline .mw { position: absolute; bottom: 4px; height: 8px; border-radius: 4px; }
 .mw[data-k="busy"] { background: var(--up); opacity: .8; } .mw[data-k="london"] { background: var(--gold); opacity: .55; bottom: 13px; height: 4px; } .mw[data-k="closed"] { background: repeating-linear-gradient(135deg, rgba(248,113,113,.7) 0 4px, transparent 4px 8px); } .mw[data-k="news"] { background: var(--down); } .mw[data-k="asia"] { background: var(--cyan); opacity: .4; }
 .timeline .nowl { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); box-shadow: 0 0 10px var(--ink); }
 .timeline .tick { position: absolute; top: 1px; font: 10px var(--mono); color: var(--muted); transform: translateX(-50%); pointer-events: none; }
 .tl-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 8px; font-size: 12px; color: var(--muted); }
 .tl-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
-.tl-legend i[data-k="school"] { background: #60A5FA; } .tl-legend i[data-k="work"] { background: #A78BFA; } .tl-legend i[data-k="busy"] { background: var(--up); } .tl-legend i[data-k="london"] { background: var(--gold); } .tl-legend i[data-k="closed"] { background: var(--down); }
+.tl-legend i[data-k="school"] { background: #4FE3CF; } .tl-legend i[data-k="work"] { background: #A78BFA; } .tl-legend i[data-k="busy"] { background: var(--up); } .tl-legend i[data-k="london"] { background: var(--gold); } .tl-legend i[data-k="closed"] { background: var(--down); }
 .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin-bottom: 14px; }
 .addrow { display: flex; gap: 8px; margin-bottom: 10px; } .addrow input { flex: 1; min-width: 0; }
 .tasks { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 320px; overflow: auto; }
@@ -110,7 +110,7 @@ body { min-height: 100dvh; }
 .week .cls { position: absolute; left: 4px; right: 4px; border-radius: 8px; padding: 5px 7px; font-size: 11.5px; line-height: 1.25; color: #0B0E14; font-weight: 600; overflow: hidden; cursor: pointer; transition: transform .15s var(--ease), box-shadow .2s; }
 .week .cls:hover { transform: scale(1.02); box-shadow: 0 8px 20px rgba(0,0,0,.35); }
 .week .cls small { display: block; font-weight: 500; opacity: .8; font-family: var(--mono); font-size: 10px; }
-.week .cls[data-k="school"] { background: linear-gradient(180deg, #BFDBFE, #60A5FA); } .week .cls[data-k="work"] { background: linear-gradient(180deg, #DDD6FE, #A78BFA); } .week .cls[data-k="gym"], .week .cls[data-k="other"] { background: linear-gradient(180deg, #E5E7EB, #9CA3AF); }
+.week .cls[data-k="school"] { background: linear-gradient(180deg, #D5FBF5, #4FE3CF); } .week .cls[data-k="work"] { background: linear-gradient(180deg, #DDD6FE, #A78BFA); } .week .cls[data-k="gym"], .week .cls[data-k="other"] { background: linear-gradient(180deg, #E5E7EB, #9CA3AF); }
 .week .cls.opt { background: repeating-linear-gradient(135deg, #93C5FD 0 7px, #7DB3F7 7px 14px); }
 .week .nowl { position: absolute; left: 0; right: 0; height: 2px; background: var(--gold); box-shadow: 0 0 8px var(--gold); z-index: 2; }
 .classform { display: grid; grid-template-columns: 1.4fr 1fr; gap: 8px; margin-top: 12px; }

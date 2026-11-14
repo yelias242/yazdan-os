@@ -38,3 +38,11 @@ window.OS_LINKS = { site: 'https://yelias242.github.io/yazdan-os/' };
 if (location.protocol === 'file:' && window.top === window) location.replace(window.OS_LINKS.site + (location.pathname.split('/').pop() || 'os.html') + location.hash);
 // The newest morning brief. The scheduled brief can overwrite this file when your Mac is on.
 window.OS_BRIEF = null;
+
+// About Yazdan (from what he wrote for Atlas, Nov 14, 2026). Atlas uses this as background.
+window.OS_ABOUT = `Studying Denturism at Georgian College; it's his chosen career direction and he wants to get really good at it, but it doesn't define his whole identity.
+Bigger ambitions: build businesses, develop technology and digital products, understand and use AI well, create extra income streams, learn skills outside school, and eventually have the freedom to create his own opportunities. Wants help balancing studies with these ambitions without neglecting either.
+Builds websites and tools with AI (mainly Claude): a personal Study Hub with quizzes, flashcards, notes, anatomy/orofacial/denture/dental materials questions tied to lecture slides, and test countdowns. Interested in web development (HTML, CSS, JavaScript), UI design, automation and turning problems into tech solutions. Doesn't need to be a pro engineer but wants to understand code, not blindly copy it. Exploring turning this into a business: study sites for other college programs, websites for local businesses, small apps that solve real problems.
+Wants to learn business, AI, programming, psychology, finance, marketing, communication and entrepreneurship. Long-term: create something meaningful, financial independence, help his family, and freedom over his time.
+Also practising trading gold and Bitcoin on a demo account, and makes stick-figure TikTok/Instagram videos.
+How to talk to him: explain things clearly without assuming he knows everything, but don't underestimate him; encourage understanding over copy-paste.`;

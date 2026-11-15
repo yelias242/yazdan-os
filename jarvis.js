@@ -594,6 +594,11 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#bar').addEventListener('submit', e => { e.preventDefault(); const v = $('#inp').value.trim(); if (v) { $('#inp').value = ''; ask(v); } });
   $('#connect').addEventListener('click', connect);
   $('#quit').addEventListener('click', async e => { e.preventDefault(); eyeOff(); stopVoice(); try { await fetch('/quit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (x) {} helper = { ok: false }; $('#status').textContent = 'Atlas is off. Close this window; open the Atlas app to start it again.'; try { top.close(); } catch (x) {} });
+  // side panel tabs
+  function showTab(t) { $$('.tabs [data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t)); $$('.pane').forEach(p => { p.hidden = p.dataset.pane !== t; }); ls.set('atlas_tab', t); }
+  $$('.tabs [data-tab]').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+  showTab(ls.get('atlas_tab', 'ask'));
+  new MutationObserver(() => { const need = !$('#setupBox').hidden; $('#setDot').hidden = !need; if (need) showTab('set'); }).observe($('#setupBox'), { attributes: true, attributeFilter: ['hidden'] });
   $('#apYes').addEventListener('click', () => answerApproval(true)); $('#apNo').addEventListener('click', () => answerApproval(false)); $('#stopBtn').addEventListener('click', stopAtlas);
   $('#cam').addEventListener('click', () => eye('cam')); $('#scr').addEventListener('click', () => eye('scr'));
   $('#setup').addEventListener('click', async () => { $('#setupTxt').innerHTML = '<b>A Terminal window is opening.</b> Follow the two steps there, then come back. This box disappears when it is done.'; try { await fetch('/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (e) {} });

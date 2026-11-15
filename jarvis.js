@@ -15,17 +15,19 @@
   // Kokoro voices run inside your own browser: free, no account, no limits. They're the default.
   const APP = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.port === '8787';   // true inside the Atlas app on the Mac
   let VOICES = [
+    { id: 'k:af_heart', label: 'Heart · free', provider: 'kokoro' }, { id: 'k:bf_emma', label: 'Emma · British · free', provider: 'kokoro' },
+    { id: 'k:bf_isabella', label: 'Isabella · British · free', provider: 'kokoro' }, { id: 'k:af_bella', label: 'Bella · free', provider: 'kokoro' },
+    { id: 'k:af_nicole', label: 'Nicole · soft · free', provider: 'kokoro' }, { id: 'k:bf_alice', label: 'Alice · British · free', provider: 'kokoro' },
     { id: 'k:bm_george', label: 'George · British · free', provider: 'kokoro' }, { id: 'k:bm_fable', label: 'Fable · British · free', provider: 'kokoro' },
-    { id: 'k:bf_emma', label: 'Emma · British · free', provider: 'kokoro' }, { id: 'k:af_heart', label: 'Heart · free', provider: 'kokoro' },
     { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George · ElevenLabs', provider: 'elevenlabs' }, { id: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel · ElevenLabs', provider: 'elevenlabs' },
     { id: 'nPczCjzI2devNBz1zQrb', label: 'Brian', provider: 'elevenlabs' }, { id: 'cgSgspJ2msm6clMCkdW9', label: 'Jessica', provider: 'elevenlabs' },
     { id: 'ash', label: 'Ash', provider: 'openai' }, { id: 'coral', label: 'Coral', provider: 'openai' },
     { id: 'mac', label: 'Mac voice', provider: 'browser' }
   ];
   const STYLE = 'Talk like a relaxed, warm friend in a casual conversation: natural pace, real emotion, small pauses, a little smile in your voice when joking. Never sound like a narrator reading text.';
-  let voice = ls.get('atlas_voice4', 'k:bm_george'), talkMode = ls.get('atlas_talkmode', true), auto = ls.get('atlas_auto', true);
+  let voice = ls.get('atlas_voice5', 'k:af_heart'), talkMode = ls.get('atlas_talkmode', true), auto = ls.get('atlas_auto', true);
   // In the Mac app every voice is a free one that runs on the Mac itself.
-  if (APP) VOICES = VOICES.filter(v => v.provider === 'kokoro').concat([{ id: 'k:bm_daniel', label: 'Daniel · British · free', provider: 'kokoro' }, { id: 'k:bm_lewis', label: 'Lewis · British · free', provider: 'kokoro' }, { id: 'k:am_michael', label: 'Michael · free', provider: 'kokoro' }, { id: 'k:af_bella', label: 'Bella · free', provider: 'kokoro' }]);
+  if (APP) VOICES = VOICES.filter(v => v.provider === 'kokoro').concat([{ id: 'k:bf_lily', label: 'Lily · British · free', provider: 'kokoro' }, { id: 'k:af_sarah', label: 'Sarah · free', provider: 'kokoro' }, { id: 'k:bm_daniel', label: 'Daniel · British · free', provider: 'kokoro' }]);
   if (!VOICES.some(v => v.id === voice)) voice = VOICES[0].id;
   function renderVoices() { $('#voices').innerHTML = VOICES.map(v => `<button type="button" data-voice="${v.id}" aria-pressed="${v.id === voice}">${esc(v.label)}</button>`).join(''); }
 
@@ -392,10 +394,10 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
       if ((kokoro && kokoroFast) || !aiOK) { try { return await kokoroSay(text, v.id.slice(2)); } catch (e) { if (!aiOK) return null; } }
       else if (!kokoro) loadKokoro().catch(() => {});
     }
-    if (!aiOK) { try { return await kokoroSay(text, v.provider === 'kokoro' ? v.id.slice(2) : 'bm_george'); } catch (e) { return null; } }
+    if (!aiOK) { try { return await kokoroSay(text, v.provider === 'kokoro' ? v.id.slice(2) : 'af_heart'); } catch (e) { return null; } }
     const t = text.slice(0, 2900), tries = [];
     if (ttsGood) tries.push(ttsGood);
-    if (v.provider !== 'openai') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.provider === 'elevenlabs' ? v.id : 'JBFqnCBsd6RMkjVDRZzb' });
+    if (v.provider !== 'openai') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.provider === 'elevenlabs' ? v.id : 'cgSgspJ2msm6clMCkdW9' });
     if (v.provider === 'elevenlabs') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.id }, { provider: 'elevenlabs', model: 'eleven_multilingual_v2', voice: v.id });
     if (v.provider === 'openai') tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: v.id, instructions: STYLE });
     tries.push({ provider: 'openai', model: 'gpt-4o-mini-tts', voice: 'ash', instructions: STYLE }, { provider: 'aws-polly', voice: 'Matthew', engine: 'neural' });
@@ -480,7 +482,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#auto').addEventListener('click', () => { auto = !auto; ls.set('atlas_auto', auto); paintAuto(); });
   document.addEventListener('click', e => {
     const s = e.target.closest('[data-say]'); if (s) { ask(s.dataset.say); return; }
-    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice4', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
+    const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice5', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
   });
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') { stopVoice(); if (rec) try { rec.abort(); } catch (x) {} setState('idle'); return; }

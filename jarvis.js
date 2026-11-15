@@ -36,6 +36,7 @@
   const STATUS = { idle: () => chat.length ? 'Your turn · tap the galaxy or press space' : 'Tap the galaxy or press space to talk', listening: () => 'Listening · just pause when you\'re done', thinking: () => 'Thinking', speaking: () => 'Speaking · tap to cut in', error: () => 'Something went wrong · try again' };
   function brainWord() { try { if (helper.ok) return helperReady() ? 'Claude Code online' : 'setup needed'; return aiOK ? 'AI online' : 'AI offline'; } catch (e) { return 'starting'; } }
   function setState(s) {
+    setTimeout(() => { try { bgSync(); $('#stopBtn').hidden = !(busy && helper.ok); } catch (e) {} }, 0);
     state = s; Sky.set(s); $('#status').textContent = STATUS[s]();
     $$('#states span[data-s]').forEach(x => x.classList.toggle('on', x.dataset.s === s));
     $('#line').textContent = `● Core · ${{ idle: 'idle', listening: 'listening', thinking: 'working', speaking: 'speaking', error: 'error' }[s]} · connected vault · ${brainWord()}`;
@@ -214,7 +215,7 @@
       $('#brainSub').textContent = 'on this Mac'; $('#aiOn').classList.toggle('ok', helperReady()); $('#aiTxt').textContent = helperReady() ? 'Claude Code on this Mac · can use your Mac' : 'Waiting for setup'; $('#connect').hidden = true; $('#offline').hidden = true; }
     return helperReady();
   }
-  const TOOLWORD = n => /Gmail/i.test(n) ? 'Checking your email…' : /WebSearch|WebFetch/.test(n) ? 'Searching the web…' : /Read|Glob|Grep/.test(n) ? 'Looking through your files…' : /Write|Edit/.test(n) ? 'Writing a file…' : 'Working on your Mac…';
+  const TOOLWORD = n => /^Bash$/.test(n) ? 'Working on your Mac…' : /Gmail/i.test(n) ? 'Checking your email…' : /WebSearch|WebFetch/.test(n) ? 'Searching the web…' : /Read|Glob|Grep/.test(n) ? 'Looking through your files…' : /Write|Edit/.test(n) ? 'Writing a file…' : 'Working on your Mac…';
   async function thinkHelper(text, onText) {
     const body = { text, facts: knowledge() }, img = eyeFrame(); if (img) { body.image = img; body.eye = eyeKind === 'scr' ? 'screen' : 'camera'; }
     const r = await fetch('/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -225,14 +226,88 @@
         const line = buf.slice(0, i); buf = buf.slice(i + 2); if (!line.startsWith('data: ')) continue;
         let ev; try { ev = JSON.parse(line.slice(6)); } catch (e) { continue; }
         if (ev.t) { out += ev.t; onText && onText(out); }
+        else if (ev.approve) { out += (out && !/\s$/.test(out) ? ' ' : '') + ev.approve.text + ' '; onText && onText(out); showApproval(ev.approve); }
         else if (ev.tool) $('#status').textContent = TOOLWORD(ev.tool);
         else if (ev.error) err = ev;
         else if (ev.done) added = ev.added || [];
       }
     }
     if (added.length) { const T = B.M.tasks(); added.forEach(a => T.push({ id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: a.title, due: String(a.due).slice(0, 10), domain: 'life', done: false })); B.M.setTasks(T); renderPanels(); }
+    hideApproval();
     if (err) { out = (out ? out + ' ' : '') + (err.text || ''); onText && onText(out); checkHelper(true); }
     return out.trim();
+  }
+  /* ---- yes/no questions from Atlas (before deleting, sending, changing settings...) ---- */
+  let approval = null;
+  function showApproval(a) { approval = a; $('#apQ').textContent = a.text; $('#approve').hidden = false; try { new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=').play(); } catch (e) {} bgSync(); }
+  function hideApproval() { approval = null; $('#approve').hidden = true; bgSync(); }
+  async function answerApproval(yes) { if (!approval) return; const id = approval.id; hideApproval(); $('#status').textContent = yes ? 'Okay, doing it.' : 'Okay, I won\'t.'; try { await fetch('/approve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, yes }) }); } catch (e) {} }
+  async function stopAtlas() { stopVoice(); hideApproval(); $('#status').textContent = 'Stopping…'; try { await fetch('/stop', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (e) {} }
+  /* ---- always-on ears: "Hey Atlas" when idle; "stop" and yes/no while working ---- */
+  let bg = null, bgMode = null, bgOff = false;
+  const YES = /\b(yes|yeah|yep|yup|sure|do it|go ahead|confirm|okay do it)\b/i, NO = /\b(no|nope|nah|don't|do not|cancel)\b/i, STOPW = /\b(stop|cancel that|atlas stop|hold on)\b/i, WAKE = /\b(hey |hi |ok |okay )?atlas\b[\s,.!?]*(.*)$/i;
+  function bgWanted() {
+    if (!INAPP || !helperReady() || !SR || bgOff || document.querySelector('.asleep')) return null;
+    if (rec) return null;                                                  // the normal mic is on
+    if (busy) return 'work';
+    if (state === 'idle' && ls.get('atlas_wake', true)) return 'wake';
+    return null;
+  }
+  function bgSync() {
+    const want = bgWanted(); if (want === bgMode && (bg || !want)) return;
+    if (bg) { const b = bg; bg = null; bgMode = null; try { b.abort(); } catch (e) {} }
+    if (!want) return;
+    const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = false; bg = r; bgMode = want;
+    r.onresult = e => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (!e.results[i].isFinal) continue; const t = e.results[i][0].transcript.trim(); if (!t) continue;
+        if (bgMode === 'work') {
+          if (approval && YES.test(t) && !NO.test(t)) { answerApproval(true); return; }
+          if (approval && NO.test(t)) { answerApproval(false); return; }
+          if (STOPW.test(t)) { stopAtlas(); return; }
+        } else if (bgMode === 'wake') {
+          const m = t.match(WAKE); if (!m) continue;
+          const rest = (m[2] || '').trim(); try { r.abort(); } catch (x) {} bg = null; bgMode = null;
+          if (rest.length > 3) ask(rest); else listen();
+          return;
+        }
+      }
+    };
+    r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { bgOff = true; $('#status').textContent = 'Microphone is blocked, so “Hey Atlas” is off. Allow the mic and reload.'; } };
+    r.onend = () => { if (bg === r) { bg = null; bgMode = null; setTimeout(bgSync, 300); } };
+    try { r.start(); } catch (e) { bg = null; bgMode = null; }
+  }
+  /* ---- Mac settings and phone control ---- */
+  async function getJ(u) { try { return await (await fetch(u, { cache: 'no-store' })).json(); } catch (e) { return null; } }
+  async function postJ(u, b) { try { return await (await fetch(u, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b || {}) })).json(); } catch (e) { return null; } }
+  function paintOpt(id, on, label) { const b = $(id); b.setAttribute('aria-pressed', !!on); b.textContent = label + (on ? ' · on' : ' · off'); }
+  async function paintSettings() {
+    const st = await getJ('/settings'); if (st) { paintOpt('#optLogin', st.login, 'Starts with Mac'); paintOpt('#optTrack', st.tracking, 'Activity log'); }
+    paintOpt('#optWake', ls.get('atlas_wake', true), '“Hey Atlas”');
+    const ph = await getJ('/phone'), box = $('#phoneBox'); if (!ph) return;
+    if (!ph.token) box.innerHTML = '<b>Control Atlas from your phone (free, Telegram)</b><ol><li>On your phone, open Telegram and message <b>@BotFather</b>.</li><li>Send <b>/newbot</b>, pick any name, and copy the token it gives you.</li><li>Paste it here.</li></ol><div class="row"><input id="tgTok" placeholder="1234567890:ABC…" autocomplete="off" spellcheck="false" aria-label="Telegram bot token"><button type="button" class="chipbtn" id="tgSave">Connect</button></div><span id="tgMsg"></span>';
+    else if (!ph.paired) box.innerHTML = `<b>Almost there.</b> ${ph.err ? esc(ph.err) : `In Telegram, open <b>@${esc(ph.bot || 'your bot')}</b> and send this code:`}<span class="code">${ph.err ? '' : esc(ph.code)}</span><div class="row"><button type="button" class="chipbtn" id="tgOff">Remove</button></div>`;
+    else box.innerHTML = `<b>Phone control is on</b> through @${esc(ph.bot || 'your bot')}. Message it what to do. Send <b>screen</b> to see your Mac, or <b>stop</b> to stop.<div class="row"><button type="button" class="chipbtn" id="tgOff">Turn off</button></div>`;
+  }
+  function wireSettings() {
+    $('#optWake').addEventListener('click', () => { ls.set('atlas_wake', !ls.get('atlas_wake', true)); paintSettings(); bgSync(); });
+    $('#optLogin').addEventListener('click', async () => { const on = $('#optLogin').getAttribute('aria-pressed') !== 'true'; await postJ('/settings', { login: on }); paintSettings(); });
+    $('#optTrack').addEventListener('click', async () => { const on = $('#optTrack').getAttribute('aria-pressed') !== 'true'; await postJ('/settings', { tracking: on }); paintSettings(); });
+    $('#openLog').addEventListener('click', async () => { const d = $('#logDlg'); $('#logTxt').textContent = 'Loading…'; d.showModal(); const j = await getJ('/log'); $('#logTxt').textContent = j && j.lines.length ? j.lines.slice().reverse().join('\n') : 'Nothing yet.'; });
+    $('#logClose').addEventListener('click', () => $('#logDlg').close());
+    $('#phoneBox').addEventListener('click', async e => {
+      if (e.target.id === 'tgSave') { const r = await postJ('/phone', { token: $('#tgTok').value.trim() }); if (r && !r.ok) $('#tgMsg').textContent = r.error; setTimeout(paintSettings, 1500); }
+      if (e.target.id === 'tgOff') { await postJ('/phone', { off: true }); paintSettings(); }
+    });
+    setInterval(() => { if (!$('#phoneBox').closest('[hidden]') && document.activeElement?.id !== 'tgTok') paintSettings(); }, 6000);
+  }
+  /* ---- one Atlas window only: a newer window takes over and older ones go quiet ---- */
+  if (INAPP && window.BroadcastChannel) {
+    const me = Math.random().toString(36).slice(2), bc = new BroadcastChannel('atlas-window');
+    bc.onmessage = ev => { if (ev.data && ev.data.hello && ev.data.hello !== me && !document.querySelector('.asleep')) {
+      try { stopVoice(); eyeOff(); if (bg) bg.abort(); if (rec) rec.abort(); } catch (e) {}
+      const d = document.createElement('div'); d.className = 'asleep'; d.textContent = 'Atlas is open in another window. You can close this one.'; document.body.appendChild(d); try { top.close(); } catch (e) {} } };
+    bc.postMessage({ hello: me });
   }
   // Atlas speaks up by itself when a reminder comes due (while this window is open).
   async function pollDue() {
@@ -435,6 +510,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
     if (busy) return;
     if (!SR) { $('#status').textContent = 'Voice needs Google Chrome. You can type below.'; $('#inp').focus(); return; }
     stopVoice(); if (rec) { try { rec.stop(); } catch (e) {} return; }
+    if (typeof bg !== 'undefined' && bg) { const b = bg; bg = null; bgMode = null; try { b.abort(); } catch (e) {} }
     rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true; rec.continuous = false; let final = '';
     rec.onstart = () => setState('listening');
     rec.onresult = e => { let interim = ''; for (let i = e.resultIndex; i < e.results.length; i++) { const x = e.results[i]; if (x.isFinal) final += x[0].transcript; else interim += x[0].transcript; } $('#you').textContent = `“${(final + interim).trim()}”`; $('#ai').textContent = ''; Sky.pulse(.4); };
@@ -464,10 +540,11 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#bar').addEventListener('submit', e => { e.preventDefault(); const v = $('#inp').value.trim(); if (v) { $('#inp').value = ''; ask(v); } });
   $('#connect').addEventListener('click', connect);
   $('#quit').addEventListener('click', async e => { e.preventDefault(); eyeOff(); stopVoice(); try { await fetch('/quit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (x) {} helper = { ok: false }; $('#status').textContent = 'Atlas is off. Close this window; open the Atlas app to start it again.'; try { top.close(); } catch (x) {} });
+  $('#apYes').addEventListener('click', () => answerApproval(true)); $('#apNo').addEventListener('click', () => answerApproval(false)); $('#stopBtn').addEventListener('click', stopAtlas);
   $('#cam').addEventListener('click', () => eye('cam')); $('#scr').addEventListener('click', () => eye('scr'));
   $('#setup').addEventListener('click', async () => { $('#setupTxt').innerHTML = '<b>A Terminal window is opening.</b> Follow the two steps there, then come back. This box disappears when it is done.'; try { await fetch('/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (e) {} });
   $('#guide').addEventListener('click', e => { const q = e.target.closest('q'); if (q) { $('#inp').value = q.textContent; $('#inp').focus(); } });
-  if (INAPP) { checkHelper(); setInterval(() => { if (!helperReady()) checkHelper(true); }, 5000); setInterval(pollDue, 20000); }
+  if (INAPP) { wireSettings(); checkHelper().then(() => { paintSettings(); bgSync(); }); setInterval(() => { if (!helperReady()) checkHelper(true).then(bgSync); }, 5000); setInterval(pollDue, 20000); }
   // free offline brain switch (only on computers that can run it)
   const offBtn = $('#offline'); offBtn.hidden = !canLocal();
   const offLbl = () => { const on = ls.get('atlas_local', false); offBtn.textContent = on ? 'Offline brain: on' : 'Free offline brain'; offBtn.setAttribute('aria-pressed', on); };
@@ -485,6 +562,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
     const v = e.target.closest('[data-voice]'); if (v) { voice = v.dataset.voice; ls.set('atlas_voice5', voice); ttsGood = null; renderVoices(); if (!busy) { stopVoice(); speak(`Hey ${P.name || 'Yazdan'}, it's ${NAME}. This is how I'd sound.`).then(() => { if (state === 'speaking') setState('idle'); }); } }
   });
   document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && busy && helper.ok) { stopAtlas(); return; }
     if (e.key === 'Escape') { stopVoice(); if (rec) try { rec.abort(); } catch (x) {} setState('idle'); return; }
     if (e.code === 'Space' && !/INPUT|TEXTAREA/.test(document.activeElement && document.activeElement.tagName || '')) { e.preventDefault(); $('#core').click(); }
   });

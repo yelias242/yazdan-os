@@ -90,6 +90,21 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
 .guide dd { margin: 3px 0 0; line-height: 1.5; } .guide dd q { quotes: "“" "”"; color: var(--k); cursor: pointer; } .guide dd q:hover { text-decoration: underline; }
 .setup { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; color: var(--t); background: rgba(79,227,207,.06); box-shadow: inset 0 0 0 1px rgba(79,227,207,.35); }
 .setup b { color: var(--k); font-weight: 500; } .setup .chipbtn { justify-content: center; }
+.approve { margin: 12px auto 0; max-width: 520px; padding: 14px 16px; border-radius: 12px; text-align: left; background: rgba(255, 196, 120, .07); box-shadow: inset 0 0 0 1px rgba(255, 196, 120, .45), 0 0 40px -16px rgba(255, 196, 120, .6); }
+.approve p { margin: 0 0 10px; color: var(--k); font-size: 14.5px; line-height: 1.45; } .approve small { display: block; color: var(--m); font: 400 11px var(--mono); margin-top: 8px; }
+.approve .row { display: flex; gap: 8px; } .approve button { flex: 1; padding: 10px; border: 0; border-radius: 8px; font: 500 13px var(--mono); cursor: pointer; }
+.approve .yes { color: #04110F; background: linear-gradient(135deg, #BFF7EE, #4FE3CF); } .approve .no { color: var(--k); background: rgba(255,255,255,.06); box-shadow: inset 0 0 0 1px rgba(255,255,255,.2); }
+#stopBtn { color: #fff; background: rgba(248, 113, 113, .16); box-shadow: inset 0 0 0 1px rgba(248, 113, 113, .6); }
+.macset { display: grid; gap: 8px; } .macset .opts { display: flex; flex-wrap: wrap; gap: 6px; } .macset .opts .chipbtn { flex: 1 1 auto; justify-content: center; }
+.chipbtn[aria-pressed="true"] { box-shadow: inset 0 0 0 1px rgba(79,227,207,.6); color: var(--k); }
+.phone { padding: 11px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; color: var(--t); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+.phone b { color: var(--k); font-weight: 500; } .phone ol { margin: 6px 0; padding-left: 18px; } .phone .row { display: flex; gap: 6px; margin-top: 8px; }
+.phone input { flex: 1; min-width: 0; padding: 8px 10px; border-radius: 8px; border: 0; background: rgba(255,255,255,.05); color: var(--k); font: 400 12px var(--mono); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+.phone .code { font: 500 22px var(--mono); letter-spacing: .25em; color: var(--k); display: block; margin: 4px 0; }
+dialog#logDlg { width: min(760px, 92vw); max-height: 80vh; border: 0; border-radius: 14px; padding: 0; color: var(--t); background: #070A12; box-shadow: 0 0 0 1px rgba(79,227,207,.3), 0 40px 80px -20px #000; }
+dialog#logDlg::backdrop { background: rgba(0,0,0,.6); } dialog#logDlg header { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,.08); font: 500 11px var(--mono); letter-spacing: .16em; text-transform: uppercase; color: var(--k); }
+dialog#logDlg pre { margin: 0; padding: 14px 16px; max-height: 64vh; overflow: auto; white-space: pre-wrap; font: 400 12px/1.6 var(--mono); }
+.asleep { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(4,5,10,.92); color: var(--k); font: 400 14px var(--mono); text-align: center; padding: 20px; }
 @media (max-width: 900px) {
   .hud { position: static; display: block; min-height: 100%; overflow: visible; padding: 14px 16px 0; }
   #sky { position: fixed; } .mode, .left, .bot .dim { display: none; } .clock b { font-size: 30px; }
@@ -103,6 +118,8 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
 <link rel="icon" type="image/png" href="icon-192.png">
 </head>
 <body>
+<dialog id="logDlg"><header>What Atlas did<button type="button" class="chipbtn" id="logClose">Close</button></header><pre id="logTxt">Loading…</pre></dialog>
+
 <div class="hud">
   <canvas id="sky" aria-hidden="true"></canvas>
   <header class="top">
@@ -123,7 +140,8 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
     <div class="name" id="bigName">ATLAS</div>
     <div class="sub" id="sub">Your AI · tap the galaxy to talk</div>
     <div class="states" id="states"><span data-s="idle" class="on">Idle</span><span data-s="listening">Listening</span><span data-s="thinking">Working</span><span data-s="speaking">Speaking</span><span data-s="error">Error</span><span class="auto" id="auto" role="button" tabindex="0" title="Keep listening after each answer">Auto</span></div>
-    <div class="eyes mac" id="eyes" hidden><button type="button" id="cam" aria-pressed="false">Camera</button><button type="button" id="scr" aria-pressed="false">Share screen</button></div>
+    <div class="eyes mac" id="eyes" hidden><button type="button" id="cam" aria-pressed="false">Camera</button><button type="button" id="scr" aria-pressed="false">Share screen</button><button type="button" id="stopBtn" hidden title="Stops whatever Atlas is doing (or say Stop, or press Escape)">Stop</button></div>
+    <div class="approve" id="approve" hidden role="alertdialog" aria-live="assertive"><p id="apQ"></p><div class="row"><button type="button" class="yes" id="apYes">Yes, do it</button><button type="button" class="no" id="apNo">No</button></div><small>Or just say yes or no.</small></div>
     <video id="eye" muted playsinline hidden></video>
     <div id="status" role="status">Tap the galaxy or press space to talk</div>
     <div class="said" aria-live="polite"><span class="you" id="you"></span><span class="ai" id="ai"></span></div>
@@ -151,6 +169,11 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
     <div class="ttl">Brain <span id="brainSub">free AI</span></div>
     <div class="setup" id="setupBox" hidden><span id="setupTxt"></span><button type="button" class="chipbtn" id="setup">Set up Atlas's brain</button></div>
     <div class="ai-on" id="aiOn"><i></i><span id="aiTxt">Checking…</span><button type="button" class="chipbtn" id="connect" hidden>Connect</button><button type="button" class="chipbtn" id="offline" hidden title="A free AI that runs on this computer. About 2 GB, downloaded once.">Free offline brain</button></div>
+    <div class="ttl mac" hidden>Your Mac <span>control</span></div>
+    <div class="macset mac" hidden>
+      <div class="opts"><button type="button" class="chipbtn" id="optWake" aria-pressed="false">“Hey Atlas”</button><button type="button" class="chipbtn" id="optLogin" aria-pressed="false">Starts with Mac</button><button type="button" class="chipbtn" id="optTrack" aria-pressed="false">Activity log</button><button type="button" class="chipbtn" id="openLog">What Atlas did</button></div>
+      <div class="phone" id="phoneBox"></div>
+    </div>
     <div class="ttl">Voice <span>pick one</span></div>
     <div class="voices" id="voices"></div>
     <button type="button" class="talk" id="talk">Tap to talk</button>
@@ -161,10 +184,10 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
   </aside>
   <footer class="bot"><span class="dim">⌘ Atlas</span><nav aria-label="Pages"><a href="os.html#home" target="_top">My OS</a><a href="index.html#gold" target="_top">Trading Desk</a><a href="index.html#learn" target="_top">Learn</a><a href="#" id="quit" hidden title="Stops Atlas in the background on this Mac">Quit Atlas</a></nav><span class="dim" id="foot">Saved in this browser</span></footer>
 </div>
-<script src="os-config.js?v=20261115a"></script>
-<script src="brain.js?v=20261115a"></script>
-<script src="data.js?v=20261115a"></script>
+<script src="os-config.js?v=20261115b"></script>
+<script src="brain.js?v=20261115b"></script>
+<script src="data.js?v=20261115b"></script>
 <script>/* Puter only works on a real web address, not a file opened from Downloads (it would cover the page with an error box). */ if (/^https?:$/.test(location.protocol) && location.port !== '8787') document.write('<script src="https://js.puter.com/v2/"><\/script>');</script>
-<script src="jarvis.js?v=20261115a"></script>
+<script src="jarvis.js?v=20261115b"></script>
 </body>
 </html>

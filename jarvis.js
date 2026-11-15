@@ -33,7 +33,7 @@
 
   /* ---------------- state + display ---------------- */
   let state = 'idle', busy = false, rec = null, audio = null, chat = ls.get('atlas_chat2', []), mem = ls.get('atlas_mem', []);
-  const STATUS = { idle: () => chat.length ? 'Your turn · tap the galaxy or press space' : 'Tap the galaxy or press space to talk', listening: () => 'Listening · just pause when you\'re done', thinking: () => 'Thinking', speaking: () => 'Speaking · tap to cut in', error: () => 'Something went wrong · try again' };
+  const STATUS = { idle: () => (typeof bgMode !== 'undefined' && bgMode === 'wake' && ls.get('atlas_open', true)) ? 'I\'m listening · just talk' : chat.length ? 'Your turn · tap the galaxy or press space' : 'Tap the galaxy or press space to talk', listening: () => 'Listening · just pause when you\'re done', thinking: () => 'Thinking', speaking: () => 'Speaking · just talk to cut in', error: () => 'Something went wrong · try again' };
   function brainWord() { try { if (helper.ok) return helperReady() ? 'Claude Code online' : 'setup needed'; return aiOK ? 'AI online' : 'AI offline'; } catch (e) { return 'starting'; } }
   function setState(s) {
     setTimeout(() => { try { bgSync(); $('#stopBtn').hidden = !(busy && helper.ok); } catch (e) {} }, 0);
@@ -264,14 +264,15 @@
     if (rec) return null;                                                  // the normal mic is on
     if (state === 'speaking' && talkMode) return 'barge';
     if (busy) return 'work';
-    if (state === 'idle' && ls.get('atlas_wake', true)) return 'wake';
+    if (state === 'idle' && (ls.get('atlas_wake', true) || ls.get('atlas_open', true))) return 'wake';
     return null;
   }
   function bgSync() {
     const want = bgWanted(); if (want === bgMode && (bg || !want)) return;
     if (bg) { const b = bg; bg = null; bgMode = null; try { b.abort(); } catch (e) {} }
     if (!want) return;
-    const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = want === 'barge'; bg = r; bgMode = want; let cut = false;
+    const open = want === 'wake' && ls.get('atlas_open', true);
+    const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = want === 'barge' || open; bg = r; bgMode = want; let cut = false, heard = '', quiet = 0;
     r.onresult = e => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const t = e.results[i][0].transcript.trim(); if (!t) continue;
@@ -289,6 +290,14 @@
           if (approval && YES.test(t) && !NO.test(t)) { answerApproval(true); return; }
           if (approval && NO.test(t)) { answerApproval(false); return; }
           if (STOPW.test(t)) { stopAtlas(); return; }
+        } else if (bgMode === 'wake' && open) {
+          // always listening: whatever he says is for Atlas. Answer after a short pause instead of waiting for Chrome to decide he's done.
+          let all = ''; for (let k = 0; k < e.results.length; k++) all += e.results[k][0].transcript; heard = all.trim();
+          $('#you').textContent = `“${heard}”`; Sky.pulse(.3); clearTimeout(quiet);
+          const go = () => { const said = heard.replace(/^(hey |hi |ok |okay )?atlas[\s,.!?]*/i, '').trim(); if (said.split(/\s+/).length < 2 && !/^(hi|hey|hello|yo|thanks|bye)/i.test(said)) return; try { r.abort(); } catch (x) {} bg = null; bgMode = null; ask(said || heard); };
+          if (e.results[i].isFinal) { go(); return; }
+          quiet = setTimeout(go, 750);
+          return;
         } else if (bgMode === 'wake') {
           const m = t.match(WAKE); if (!m) continue;
           const rest = (m[2] || '').trim(); try { r.abort(); } catch (x) {} bg = null; bgMode = null;
@@ -299,7 +308,7 @@
     };
     r.onerror = e => { if (e.error === 'not-allowed' || e.error === 'service-not-allowed') { bgOff = true; $('#status').textContent = 'Microphone is blocked, so “Hey Atlas” is off. Allow the mic and reload.'; } };
     r.onend = () => { if (bg === r) { bg = null; bgMode = null; setTimeout(bgSync, 300); } };
-    try { r.start(); } catch (e) { bg = null; bgMode = null; }
+    try { r.start(); if (want === 'wake' && state === 'idle') $('#status').textContent = STATUS.idle(); } catch (e) { bg = null; bgMode = null; }
   }
   /* ---- Mac settings and phone control ---- */
   async function getJ(u) { try { return await (await fetch(u, { cache: 'no-store' })).json(); } catch (e) { return null; } }
@@ -308,6 +317,7 @@
   async function paintSettings() {
     const st = await getJ('/settings'); if (st) { paintOpt('#optLogin', st.login, 'Starts with Mac'); paintOpt('#optTrack', st.tracking, 'Activity log'); }
     paintOpt('#optWake', ls.get('atlas_wake', true), '“Hey Atlas”');
+    paintOpt('#optOpen', ls.get('atlas_open', true), 'Always listening');
     const ph = await getJ('/phone'), box = $('#phoneBox'); if (!ph) return;
     if (!ph.token) box.innerHTML = '<b>Control Atlas from your phone (free, Telegram)</b><ol><li>On your phone, open Telegram and message <b>@BotFather</b>.</li><li>Send <b>/newbot</b>, pick any name, and copy the token it gives you.</li><li>Paste it here.</li></ol><div class="row"><input id="tgTok" placeholder="1234567890:ABC…" autocomplete="off" spellcheck="false" aria-label="Telegram bot token"><button type="button" class="chipbtn" id="tgSave">Connect</button></div><span id="tgMsg"></span>';
     else if (!ph.paired) box.innerHTML = `<b>Almost there.</b> ${ph.err ? esc(ph.err) : `In Telegram, open <b>@${esc(ph.bot || 'your bot')}</b> and send this code:`}<span class="code">${ph.err ? '' : esc(ph.code)}</span><div class="row"><button type="button" class="chipbtn" id="tgOff">Remove</button></div>`;
@@ -317,6 +327,7 @@
   }
   function wireSettings() {
     $('#optWake').addEventListener('click', () => { ls.set('atlas_wake', !ls.get('atlas_wake', true)); paintSettings(); bgSync(); });
+    $('#optOpen').addEventListener('click', () => { ls.set('atlas_open', !ls.get('atlas_open', true)); if (bg) { try { bg.abort(); } catch (e) {} } paintSettings(); setTimeout(bgSync, 300); });
     $('#optLogin').addEventListener('click', async () => { const on = $('#optLogin').getAttribute('aria-pressed') !== 'true'; await postJ('/settings', { login: on }); paintSettings(); });
     $('#optTrack').addEventListener('click', async () => { const on = $('#optTrack').getAttribute('aria-pressed') !== 'true'; await postJ('/settings', { tracking: on }); paintSettings(); });
     $('#openLog').addEventListener('click', async () => { const d = $('#logDlg'); $('#logTxt').textContent = 'Loading…'; d.showModal(); const j = await getJ('/log'); $('#logTxt').textContent = j && j.lines.length ? j.lines.slice().reverse().join('\n') : 'Nothing yet.'; });

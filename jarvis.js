@@ -13,7 +13,8 @@
   // OpenAI and ElevenLabs voices through Puter sound like real people; the Mac voice is the last resort.
   // ElevenLabs voices are the ones the Jarvis builders on TikTok use (George is the warm British one).
   // Kokoro voices run inside your own browser: free, no account, no limits. They're the default.
-  const VOICES = [
+  const APP = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.port === '8787';   // true inside the Atlas app on the Mac
+  let VOICES = [
     { id: 'k:bm_george', label: 'George · British · free', provider: 'kokoro' }, { id: 'k:bm_fable', label: 'Fable · British · free', provider: 'kokoro' },
     { id: 'k:bf_emma', label: 'Emma · British · free', provider: 'kokoro' }, { id: 'k:af_heart', label: 'Heart · free', provider: 'kokoro' },
     { id: 'JBFqnCBsd6RMkjVDRZzb', label: 'George · ElevenLabs', provider: 'elevenlabs' }, { id: 'onwK4e9ZLuTAKqWW03F9', label: 'Daniel · ElevenLabs', provider: 'elevenlabs' },
@@ -23,15 +24,19 @@
   ];
   const STYLE = 'Talk like a relaxed, warm friend in a casual conversation: natural pace, real emotion, small pauses, a little smile in your voice when joking. Never sound like a narrator reading text.';
   let voice = ls.get('atlas_voice4', 'k:bm_george'), talkMode = ls.get('atlas_talkmode', true), auto = ls.get('atlas_auto', true);
+  // In the Mac app every voice is a free one that runs on the Mac itself.
+  if (APP) VOICES = VOICES.filter(v => v.provider === 'kokoro').concat([{ id: 'k:bm_daniel', label: 'Daniel · British · free', provider: 'kokoro' }, { id: 'k:bm_lewis', label: 'Lewis · British · free', provider: 'kokoro' }, { id: 'k:am_michael', label: 'Michael · free', provider: 'kokoro' }, { id: 'k:af_bella', label: 'Bella · free', provider: 'kokoro' }]);
+  if (!VOICES.some(v => v.id === voice)) voice = VOICES[0].id;
   function renderVoices() { $('#voices').innerHTML = VOICES.map(v => `<button type="button" data-voice="${v.id}" aria-pressed="${v.id === voice}">${esc(v.label)}</button>`).join(''); }
 
   /* ---------------- state + display ---------------- */
   let state = 'idle', busy = false, rec = null, audio = null, chat = ls.get('atlas_chat2', []), mem = ls.get('atlas_mem', []);
   const STATUS = { idle: () => chat.length ? 'Your turn · tap the galaxy or press space' : 'Tap the galaxy or press space to talk', listening: () => 'Listening · just pause when you\'re done', thinking: () => 'Thinking', speaking: () => 'Speaking · tap to cut in', error: () => 'Something went wrong · try again' };
+  function brainWord() { try { if (helper.ok) return helperReady() ? 'Claude Code online' : 'setup needed'; return aiOK ? 'AI online' : 'AI offline'; } catch (e) { return 'starting'; } }
   function setState(s) {
     state = s; Sky.set(s); $('#status').textContent = STATUS[s]();
     $$('#states span[data-s]').forEach(x => x.classList.toggle('on', x.dataset.s === s));
-    $('#line').textContent = `● Core · ${{ idle: 'idle', listening: 'listening', thinking: 'working', speaking: 'speaking', error: 'error' }[s]} · connected vault · ${aiOK ? 'AI online' : 'AI offline'}`;
+    $('#line').textContent = `● Core · ${{ idle: 'idle', listening: 'listening', thinking: 'working', speaking: 'speaking', error: 'error' }[s]} · connected vault · ${brainWord()}`;
     $('#talk').classList.toggle('live', s === 'listening');
     $('#talk').textContent = s === 'listening' ? 'Listening · tap to send' : s === 'speaking' ? 'Tap to cut in' : 'Tap to talk';
   }
@@ -192,9 +197,76 @@
   /* ---------------- the brain ---------------- */
   let aiOK = false;
   const hasPuter = () => !!(window.puter && puter.ai && puter.auth);
+  // The Atlas app on the Mac: this page is then served by the app itself, and the brain is Claude Code on this computer.
+  const INAPP = APP;
+  let helper = { ok: false };
+  const helperReady = () => helper.ok && helper.claude && helper.signedIn;
+  async function checkHelper(fresh) {
+    if (!INAPP) return false;
+    try { const r = await fetch('/health' + (fresh ? '?fresh=1' : ''), { cache: 'no-store' }); helper = Object.assign({ ok: true }, await r.json()); } catch (e) { helper = { ok: false }; }
+    $$('.mac').forEach(el => { el.hidden = !helperReady(); });
+    const box = $('#setupBox'); box.hidden = !helper.ok || helperReady();
+    if (!box.hidden) $('#setupTxt').innerHTML = !helper.claude ? '<b>One-time setup.</b> Atlas thinks with Claude Code, which is included in your Claude Pro plan. Press the button: a Terminal window installs it from claude.ai and asks you to sign in.' : '<b>Sign in once.</b> Press the button and sign in with your Claude account in the window that opens.';
+    $('#quit').hidden = !helper.ok;
+    if (helper.ok) { const sv = document.querySelector('.bot span:last-child'); if (sv) sv.textContent = 'Saved on this Mac'; setState(state);
+      $('#brainSub').textContent = 'on this Mac'; $('#aiOn').classList.toggle('ok', helperReady()); $('#aiTxt').textContent = helperReady() ? 'Claude Code on this Mac · can use your Mac' : 'Waiting for setup'; $('#connect').hidden = true; $('#offline').hidden = true; }
+    return helperReady();
+  }
+  const TOOLWORD = n => /Gmail/i.test(n) ? 'Checking your email…' : /WebSearch|WebFetch/.test(n) ? 'Searching the web…' : /Read|Glob|Grep/.test(n) ? 'Looking through your files…' : /Write|Edit/.test(n) ? 'Writing a file…' : 'Working on your Mac…';
+  async function thinkHelper(text, onText) {
+    const body = { text, facts: knowledge() }, img = eyeFrame(); if (img) { body.image = img; body.eye = eyeKind === 'scr' ? 'screen' : 'camera'; }
+    const r = await fetch('/ask', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = '', out = '', err = null, added = [];
+    for (;;) {
+      const { value, done } = await rd.read(); if (done) break; buf += dec.decode(value, { stream: true }); let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) {
+        const line = buf.slice(0, i); buf = buf.slice(i + 2); if (!line.startsWith('data: ')) continue;
+        let ev; try { ev = JSON.parse(line.slice(6)); } catch (e) { continue; }
+        if (ev.t) { out += ev.t; onText && onText(out); }
+        else if (ev.tool) $('#status').textContent = TOOLWORD(ev.tool);
+        else if (ev.error) err = ev;
+        else if (ev.done) added = ev.added || [];
+      }
+    }
+    if (added.length) { const T = B.M.tasks(); added.forEach(a => T.push({ id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), text: a.title, due: String(a.due).slice(0, 10), domain: 'life', done: false })); B.M.setTasks(T); renderPanels(); }
+    if (err) { out = (out ? out + ' ' : '') + (err.text || ''); onText && onText(out); checkHelper(true); }
+    return out.trim();
+  }
+  // Atlas speaks up by itself when a reminder comes due (while this window is open).
+  async function pollDue() {
+    if (!helper.ok || busy || state !== 'idle') return;
+    try {
+      const d = (await (await fetch('/due', { cache: 'no-store' })).json()).due || []; if (!d.length) return;
+      const say = `Quick reminder, ${P.name || 'Yazdan'}: ${d.map(x => x.title).join('. Also, ')}.`;
+      await fetch('/ack', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ids: d.map(x => x.id) }) });
+      chat.push({ role: 'assistant', content: say }); ls.set('atlas_chat2', chat); renderChat(); $('#you').textContent = ''; $('#ai').textContent = say;
+      if (talkMode) { await speak(say); if (state === 'speaking') setState('idle'); }
+    } catch (e) {}
+  }
+  // Eyes: your camera or your screen. While one is on, Atlas gets a fresh picture with each thing you say.
+  let eyeStream = null, eyeKind = null;
+  function eyeOff() { if (eyeStream) eyeStream.getTracks().forEach(t => t.stop()); eyeStream = null; eyeKind = null; $('#eye').hidden = true; $('#eye').srcObject = null; paintEye(); }
+  function paintEye() { [['#cam', 'cam', 'Camera'], ['#scr', 'scr', 'Share screen']].forEach(([id, k, label]) => { const b = $(id), on = eyeKind === k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); b.textContent = on ? label + ' · on' : label; }); }
+  async function eye(kind) {
+    const was = eyeKind; eyeOff(); if (was === kind) { $('#status').textContent = 'Camera and screen are off.'; return; }
+    try {
+      eyeStream = kind === 'cam' ? await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false }) : await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+      eyeKind = kind; const v = $('#eye'); v.srcObject = eyeStream; v.hidden = false; await v.play().catch(() => {});
+      eyeStream.getVideoTracks()[0].addEventListener('ended', eyeOff);
+      $('#status').textContent = kind === 'cam' ? 'Camera on. Hold something up and ask me about it.' : 'I can see your screen. Ask me what to do next.';
+    } catch (e) { eyeOff(); $('#status').textContent = kind === 'cam' ? 'Camera blocked. Allow it in the box Chrome shows, or in System Settings, Privacy & Security, Camera.' : 'Screen sharing was cancelled or blocked (System Settings, Privacy & Security, Screen Recording).'; }
+    paintEye();
+  }
+  function eyeFrame() {
+    const v = $('#eye'); if (!eyeStream || !v.videoWidth) return null;
+    const max = eyeKind === 'scr' ? 1568 : 1024, k = Math.min(1, max / Math.max(v.videoWidth, v.videoHeight)), c = document.createElement('canvas');
+    c.width = Math.round(v.videoWidth * k); c.height = Math.round(v.videoHeight * k); c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+    return c.toDataURL('image/jpeg', .82).split(',')[1];
+  }
   async function checkAI() {
     let signed = false; try { signed = hasPuter() && await puter.auth.isSignedIn(); } catch (e) {}
-    aiOK = signed; $('#aiOn').classList.toggle('ok', aiOK);
+    aiOK = signed; if (helper.ok) { setState(state); return aiOK; }
+    $('#aiOn').classList.toggle('ok', aiOK);
     $('#aiTxt').textContent = !hasPuter() ? (location.protocol === 'file:' ? 'Answering from your own data. The full AI and voices need the online version.' : 'Offline: answering from your own data') : aiOK ? 'AI connected (Puter, free)' : 'Connect once to give Atlas a real brain and voice';
     $('#connect').hidden = !hasPuter() || aiOK; setState(state);
     return aiOK;
@@ -255,6 +327,10 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
     return out.trim();
   }
   async function think(text, onText) {
+    if (helper.ok) {
+      if (helperReady()) { try { const o = await thinkHelper(text, onText); if (o) return o; } catch (e) {} await checkHelper(true); }
+      if (!helperReady()) { const o = "My brain isn't set up on this Mac yet. Press the Set up button on the right, and I'll be ready in a couple of minutes."; onText && onText(o); return o; }
+    }
     if (/news|headline|happening|going on in the world/i.test(text)) await getNews();
     if (!aiOK && hasPuter()) await checkAI();
     if (aiOK) {
@@ -293,7 +369,11 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
       const { KokoroTTS } = await import('https://cdn.jsdelivr.net/npm/kokoro-js@1.2.1/+esm');
       let gpu = false; try { gpu = innerWidth >= 900 && !!navigator.gpu && !!(await navigator.gpu.requestAdapter()); } catch (e) {}
       kokoroFast = gpu;
-      kokoro = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm' });
+      const seen = {}; let lastPct = -1;
+      kokoro = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { dtype: gpu ? 'fp32' : 'q8', device: gpu ? 'webgpu' : 'wasm',
+        progress_callback: p => { if (!p || !p.file || !p.total) return; seen[p.file] = [p.loaded || 0, p.total]; const L = Object.values(seen), pct = Math.round(L.reduce((a, x) => a + x[0], 0) / L.reduce((a, x) => a + x[1], 0) * 100);
+          if (pct !== lastPct && pct < 100) { lastPct = pct; $('#hint').textContent = `Downloading my voice (first time only)… ${pct}%`; } } });
+      $('#hint').textContent = 'Talk, then pause. Atlas answers out loud. Press Escape to stop it.';
       return kokoro;
     })().catch(e => { kokoroLoading = null; throw e; });
     return kokoroLoading;
@@ -312,7 +392,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
       if ((kokoro && kokoroFast) || !aiOK) { try { return await kokoroSay(text, v.id.slice(2)); } catch (e) { if (!aiOK) return null; } }
       else if (!kokoro) loadKokoro().catch(() => {});
     }
-    if (!aiOK) return null;
+    if (!aiOK) { try { return await kokoroSay(text, v.provider === 'kokoro' ? v.id.slice(2) : 'bm_george'); } catch (e) { return null; } }
     const t = text.slice(0, 2900), tries = [];
     if (ttsGood) tries.push(ttsGood);
     if (v.provider !== 'openai') tries.push({ provider: 'elevenlabs', model: 'eleven_flash_v2_5', voice: v.provider === 'elevenlabs' ? v.id : 'JBFqnCBsd6RMkjVDRZzb' });
@@ -381,6 +461,11 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   $('#talk').addEventListener('click', () => $('#core').click());
   $('#bar').addEventListener('submit', e => { e.preventDefault(); const v = $('#inp').value.trim(); if (v) { $('#inp').value = ''; ask(v); } });
   $('#connect').addEventListener('click', connect);
+  $('#quit').addEventListener('click', async e => { e.preventDefault(); eyeOff(); stopVoice(); try { await fetch('/quit', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (x) {} helper = { ok: false }; $('#status').textContent = 'Atlas is off. Close this window; open the Atlas app to start it again.'; try { top.close(); } catch (x) {} });
+  $('#cam').addEventListener('click', () => eye('cam')); $('#scr').addEventListener('click', () => eye('scr'));
+  $('#setup').addEventListener('click', async () => { $('#setupTxt').innerHTML = '<b>A Terminal window is opening.</b> Follow the two steps there, then come back. This box disappears when it is done.'; try { await fetch('/setup', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }); } catch (e) {} });
+  $('#guide').addEventListener('click', e => { const q = e.target.closest('q'); if (q) { $('#inp').value = q.textContent; $('#inp').focus(); } });
+  if (INAPP) { checkHelper(); setInterval(() => { if (!helperReady()) checkHelper(true); }, 5000); setInterval(pollDue, 20000); }
   // free offline brain switch (only on computers that can run it)
   const offBtn = $('#offline'); offBtn.hidden = !canLocal();
   const offLbl = () => { const on = ls.get('atlas_local', false); offBtn.textContent = on ? 'Offline brain: on' : 'Free offline brain'; offBtn.setAttribute('aria-pressed', on); };

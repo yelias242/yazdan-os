@@ -77,6 +77,19 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
 .bot { grid-area: bot; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0 calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--l); font: 400 11.5px var(--mono); }
 .bot nav { display: flex; gap: 4px; } .bot a { color: var(--k); text-decoration: none; padding: 6px 12px; border-radius: 7px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
 .bot a:hover { background: rgba(255,255,255,.06); } .dim { color: var(--m); }
+.eyes { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.eyes button { font: 400 11.5px var(--mono); padding: 7px 12px; border: 0; border-radius: 8px; cursor: pointer; color: var(--t); background: rgba(255,255,255,.03); box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); transition: background-color .2s, box-shadow .2s, transform .15s; }
+.eyes button:hover { background: rgba(255,255,255,.07); } .eyes button:active { transform: scale(.97); }
+.eyes button.on { color: #04110F; background: linear-gradient(135deg, #BFF7EE, #4FE3CF); box-shadow: 0 0 24px -6px rgba(79,227,207,.7); }
+#eye { width: min(300px, 70%); aspect-ratio: 16 / 9; object-fit: cover; margin-top: 12px; border-radius: 12px; background: #000; box-shadow: inset 0 0 0 1px rgba(79,227,207,.4), 0 0 40px -14px rgba(79,227,207,.6); }
+#eye[hidden], .mac[hidden] { display: none !important; }
+.guide { margin: 14px 0 0; font-size: 12.5px; color: var(--t); }
+.guide summary { cursor: pointer; font: 500 10.5px var(--mono); letter-spacing: .18em; text-transform: uppercase; color: var(--k); list-style: none; display: flex; justify-content: space-between; padding: 9px 11px; border-radius: 8px; box-shadow: inset 0 0 0 1px rgba(255,255,255,.14); }
+.guide summary::-webkit-details-marker { display: none; } .guide summary::after { content: "+"; color: var(--m); } .guide[open] summary::after { content: "–"; }
+.guide dl { margin: 10px 2px 0; display: grid; gap: 9px; } .guide dt { font: 500 10px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--m); }
+.guide dd { margin: 3px 0 0; line-height: 1.5; } .guide dd q { quotes: "“" "”"; color: var(--k); cursor: pointer; } .guide dd q:hover { text-decoration: underline; }
+.setup { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.5; color: var(--t); background: rgba(79,227,207,.06); box-shadow: inset 0 0 0 1px rgba(79,227,207,.35); }
+.setup b { color: var(--k); font-weight: 500; } .setup .chipbtn { justify-content: center; }
 @media (max-width: 900px) {
   .hud { position: static; display: block; min-height: 100%; overflow: visible; padding: 14px 16px 0; }
   #sky { position: fixed; } .mode, .left, .bot .dim { display: none; } .clock b { font-size: 30px; }
@@ -85,6 +98,9 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" href="icon-192.png">
 </head>
 <body>
 <div class="hud">
@@ -107,6 +123,8 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
     <div class="name" id="bigName">ATLAS</div>
     <div class="sub" id="sub">Your AI · tap the galaxy to talk</div>
     <div class="states" id="states"><span data-s="idle" class="on">Idle</span><span data-s="listening">Listening</span><span data-s="thinking">Working</span><span data-s="speaking">Speaking</span><span data-s="error">Error</span><span class="auto" id="auto" role="button" tabindex="0" title="Keep listening after each answer">Auto</span></div>
+    <div class="eyes mac" id="eyes" hidden><button type="button" id="cam" aria-pressed="false">Camera</button><button type="button" id="scr" aria-pressed="false">Share screen</button></div>
+    <video id="eye" muted playsinline hidden></video>
     <div id="status" role="status">Tap the galaxy or press space to talk</div>
     <div class="said" aria-live="polite"><span class="you" id="you"></span><span class="ai" id="ai"></span></div>
   </main>
@@ -119,8 +137,19 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
       <button type="button" data-say="Make me a study plan for this week around my classes and due dates.">Study plan<i>→</i></button>
       <button type="button" data-say="What's going on in the news today?">News<i>→</i></button>
       <button type="button" data-say="Quiz me with one question about tooth anatomy for my Orofacial test.">Quiz me<i>→</i></button>
+      <button type="button" class="mac" hidden data-say="What reminders do I have coming up?">My reminders<i>→</i></button>
+      <button type="button" class="mac" hidden data-say="What have I been doing on my Mac today, and what should I do next?">My activity<i>→</i></button>
     </div>
-    <div class="ttl">Brain <span>free AI</span></div>
+    <details class="guide" id="guide"><summary>What can I say?</summary><dl>
+      <div><dt>School</dt><dd><q>What's due this week?</q> · <q>Quiz me on Orofacial chapter 26.</q> · <q>Explain the trigeminal nerve simply.</q></dd></div>
+      <div><dt>Trading</dt><dd><q>How are gold and Bitcoin looking?</q> · <q>What is my desk waiting for?</q></dd></div>
+      <div class="mac" hidden><dt>Reminders and memory</dt><dd><q>Remind me to send my mum's package back tomorrow at five.</q> · <q>What reminders do I have?</q> · <q>Remember that my lab coat is in my car.</q></dd></div>
+      <div class="mac" hidden><dt>Your Mac</dt><dd><q>Open Blackboard.</q> · <q>Play some music.</q> · <q>Turn the volume down.</q> · <q>Find my Orofacial slides and open them.</q> · <q>What have I been doing today?</q></dd></div>
+      <div class="mac" hidden><dt>Show me things</dt><dd>Turn on Camera or Share screen, then ask <q>What is this?</q> or <q>What should I do next here?</q></dd></div>
+      <div class="mac" hidden><dt>Email and the web</dt><dd><q>Check my email for anything important.</q> · <q>Draft a reply saying I'll be late.</q> · <q>Look up the phone number for my dentist and call it.</q></dd></div>
+    </dl></details>
+    <div class="ttl">Brain <span id="brainSub">free AI</span></div>
+    <div class="setup" id="setupBox" hidden><span id="setupTxt"></span><button type="button" class="chipbtn" id="setup">Set up Atlas's brain</button></div>
     <div class="ai-on" id="aiOn"><i></i><span id="aiTxt">Checking…</span><button type="button" class="chipbtn" id="connect" hidden>Connect</button><button type="button" class="chipbtn" id="offline" hidden title="A free AI that runs on this computer. About 2 GB, downloaded once.">Free offline brain</button></div>
     <div class="ttl">Voice <span>pick one</span></div>
     <div class="voices" id="voices"></div>
@@ -130,12 +159,12 @@ form button { border: 0; border-radius: 8px; padding: 0 12px; background: rgba(2
     <div class="ttl">Transcript <button type="button" class="link" id="clear">Clear</button></div>
     <div class="chat" id="chat"></div>
   </aside>
-  <footer class="bot"><span class="dim">⌘ Atlas</span><nav aria-label="Pages"><a href="os.html#home" target="_top">My OS</a><a href="index.html#gold" target="_top">Trading Desk</a><a href="index.html#learn" target="_top">Learn</a></nav><span class="dim" id="foot">Saved in this browser</span></footer>
+  <footer class="bot"><span class="dim">⌘ Atlas</span><nav aria-label="Pages"><a href="os.html#home" target="_top">My OS</a><a href="index.html#gold" target="_top">Trading Desk</a><a href="index.html#learn" target="_top">Learn</a><a href="#" id="quit" hidden title="Stops Atlas in the background on this Mac">Quit Atlas</a></nav><span class="dim" id="foot">Saved in this browser</span></footer>
 </div>
-<script src="os-config.js?v=20261114c"></script>
-<script src="brain.js?v=20261114c"></script>
-<script src="data.js?v=20261114c"></script>
-<script>/* Puter only works on a real web address, not a file opened from Downloads (it would cover the page with an error box). */ if (/^https?:$/.test(location.protocol)) document.write('<script src="https://js.puter.com/v2/"><\/script>');</script>
-<script src="jarvis.js?v=20261114c"></script>
+<script src="os-config.js?v=20261114e"></script>
+<script src="brain.js?v=20261114e"></script>
+<script src="data.js?v=20261114e"></script>
+<script>/* Puter only works on a real web address, not a file opened from Downloads (it would cover the page with an error box). */ if (/^https?:$/.test(location.protocol) && location.port !== '8787') document.write('<script src="https://js.puter.com/v2/"><\/script>');</script>
+<script src="jarvis.js?v=20261114e"></script>
 </body>
 </html>

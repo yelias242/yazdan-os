@@ -246,9 +246,23 @@
   /* ---- always-on ears: "Hey Atlas" when idle; "stop" and yes/no while working ---- */
   let bg = null, bgMode = null, bgOff = false;
   const YES = /\b(yes|yeah|yep|yup|sure|do it|go ahead|confirm|okay do it)\b/i, NO = /\b(no|nope|nah|don't|do not|cancel)\b/i, STOPW = /\b(stop|cancel that|atlas stop|hold on)\b/i, WAKE = /\b(hey |hi |ok |okay )?atlas\b[\s,.!?]*(.*)$/i;
+  function finishBarge(r, said) {
+    if (r._done) return; r._done = true; clearTimeout(r._timer); bargeHold = false;
+    try { r.abort(); } catch (x) {} if (bg === r) { bg = null; bgMode = null; }
+    const go = () => { if (busy) return setTimeout(go, 80); ask(said); }; go();
+  }
+  function isEcho(t) {          // ignore words that match what Atlas itself is saying right now
+    const said = new Set(nowSaying.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').split(/\s+/).filter(Boolean));
+    const w = t.toLowerCase().replace(/[^a-z0-9' ]/g, ' ').split(/\s+/).filter(Boolean); if (!w.length) return true;
+    return w.filter(x => said.has(x)).length / w.length >= .6;
+  }
+  let bargeHold = false;
   function bgWanted() {
-    if (!INAPP || !helperReady() || !SR || bgOff || document.querySelector('.asleep')) return null;
+    if (bargeHold) return 'barge';
+    if (!SR || bgOff || document.querySelector('.asleep')) return null;
+    if (!(INAPP && helperReady()) && !(state === 'speaking' && talkMode)) return null;   // cutting in works everywhere; the rest is the Mac app
     if (rec) return null;                                                  // the normal mic is on
+    if (state === 'speaking' && talkMode) return 'barge';
     if (busy) return 'work';
     if (state === 'idle' && ls.get('atlas_wake', true)) return 'wake';
     return null;
@@ -257,10 +271,20 @@
     const want = bgWanted(); if (want === bgMode && (bg || !want)) return;
     if (bg) { const b = bg; bg = null; bgMode = null; try { b.abort(); } catch (e) {} }
     if (!want) return;
-    const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = false; bg = r; bgMode = want;
+    const r = new SR(); r.lang = 'en-US'; r.continuous = true; r.interimResults = want === 'barge'; bg = r; bgMode = want; let cut = false;
     r.onresult = e => {
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (!e.results[i].isFinal) continue; const t = e.results[i][0].transcript.trim(); if (!t) continue;
+        const t = e.results[i][0].transcript.trim(); if (!t) continue;
+        if (bgMode === 'barge') {
+          if (isEcho(t)) continue;                                   // that's Atlas hearing itself
+          if (!cut && t.split(/\s+/).length >= 2) {
+            cut = true; barged = true; bargeHold = true; stopVoice(); setState('listening');
+            r._last = t; r._timer = setTimeout(() => finishBarge(r, r._last), 4000);           // in case the final words never come
+          }
+          if (cut) { r._last = t; $('#you').textContent = `“${t}”`; if (e.results[i].isFinal) { finishBarge(r, t); return; } }
+          continue;
+        }
+        if (!e.results[i].isFinal) continue;
         if (bgMode === 'work') {
           if (approval && YES.test(t) && !NO.test(t)) { answerApproval(true); return; }
           if (approval && NO.test(t)) { answerApproval(false); return; }
@@ -287,7 +311,9 @@
     const ph = await getJ('/phone'), box = $('#phoneBox'); if (!ph) return;
     if (!ph.token) box.innerHTML = '<b>Control Atlas from your phone (free, Telegram)</b><ol><li>On your phone, open Telegram and message <b>@BotFather</b>.</li><li>Send <b>/newbot</b>, pick any name, and copy the token it gives you.</li><li>Paste it here.</li></ol><div class="row"><input id="tgTok" placeholder="1234567890:ABC…" autocomplete="off" spellcheck="false" aria-label="Telegram bot token"><button type="button" class="chipbtn" id="tgSave">Connect</button></div><span id="tgMsg"></span>';
     else if (!ph.paired) box.innerHTML = `<b>Almost there.</b> ${ph.err ? esc(ph.err) : `In Telegram, open <b>@${esc(ph.bot || 'your bot')}</b> and send this code:`}<span class="code">${ph.err ? '' : esc(ph.code)}</span><div class="row"><button type="button" class="chipbtn" id="tgOff">Remove</button></div>`;
-    else box.innerHTML = `<b>Phone control is on</b> through @${esc(ph.bot || 'your bot')}. Message it what to do. Send <b>screen</b> to see your Mac, or <b>stop</b> to stop.<div class="row"><button type="button" class="chipbtn" id="tgOff">Turn off</button></div>`;
+    else box.innerHTML = `<b>Phone control is on</b> through @${esc(ph.bot || 'your bot')}. Message it what to do. Send <b>screen</b> to see your Mac, or <b>stop</b> to stop. Due reminders are messaged to you there too.<div class="row"><button type="button" class="chipbtn" id="tgOff">Turn off</button></div>`
+      + (ph.caller ? `<div style="margin-top:10px"><b>Atlas can ring you</b> (${esc(ph.caller)}) when you ask, and for reminders.<div class="row"><button type="button" class="chipbtn" id="ringToggle" aria-pressed="${ph.ring}">Ring for reminders · ${ph.ring ? 'on' : 'off'}</button><button type="button" class="chipbtn" id="ringTest">Test call</button><button type="button" class="chipbtn" id="ringOff">Remove</button></div><span id="ringMsg"></span></div>`
+        : `<div style="margin-top:10px"><b>Let Atlas ring your phone (free)</b><ol><li>Give it permission to call you: open <a href="https://api2.callmebot.com/txt/login.php" target="_blank" rel="noopener">this CallMeBot link</a> and log in with Telegram, or message <b>@CallMeBot_txtbot</b> and send <b>/start</b>.</li><li>In Telegram, check Settings, Privacy and Security, Calls isn't set to Nobody.</li><li>Type your Telegram username here.</li></ol><div class="row"><input id="ringUser" placeholder="@yourname" autocomplete="off" spellcheck="false" aria-label="Your Telegram username"><button type="button" class="chipbtn" id="ringSave">Save</button></div><span id="ringMsg"></span></div>`);
   }
   function wireSettings() {
     $('#optWake').addEventListener('click', () => { ls.set('atlas_wake', !ls.get('atlas_wake', true)); paintSettings(); bgSync(); });
@@ -298,8 +324,12 @@
     $('#phoneBox').addEventListener('click', async e => {
       if (e.target.id === 'tgSave') { const r = await postJ('/phone', { token: $('#tgTok').value.trim() }); if (r && !r.ok) $('#tgMsg').textContent = r.error; setTimeout(paintSettings, 1500); }
       if (e.target.id === 'tgOff') { await postJ('/phone', { off: true }); paintSettings(); }
+      if (e.target.id === 'ringSave') { const r = await postJ('/callme', { user: $('#ringUser').value.trim() }); if (r && !r.ok) $('#ringMsg').textContent = r.error; else paintSettings(); }
+      if (e.target.id === 'ringOff') { await postJ('/callme', { user: '' }); paintSettings(); }
+      if (e.target.id === 'ringToggle') { await postJ('/callme', { ring: e.target.getAttribute('aria-pressed') !== 'true' }); paintSettings(); }
+      if (e.target.id === 'ringTest') { $('#ringMsg').textContent = 'Calling your Telegram…'; const r = await postJ('/callme', { test: true }); $('#ringMsg').textContent = r && r.result === 'rang' ? 'Sent. Your phone should ring within a minute. On iPhone you may hear nothing when you answer (a Telegram bug); the words also arrive as a message.' : r && /permission/.test(r.result || '') ? 'CallMeBot needs your permission first: open the CallMeBot link above and log in with Telegram, then test again.' : 'The call did not go through: ' + ((r && r.result) || 'no answer from CallMeBot'); }
     });
-    setInterval(() => { if (!$('#phoneBox').closest('[hidden]') && document.activeElement?.id !== 'tgTok') paintSettings(); }, 6000);
+    setInterval(() => { if (!$('#phoneBox').closest('[hidden]') && !['tgTok', 'ringUser'].includes(document.activeElement?.id)) paintSettings(); }, 6000);
   }
   /* ---- one Atlas window only: a newer window takes over and older ones go quiet ---- */
   if (INAPP && window.BroadcastChannel) {
@@ -359,10 +389,11 @@
       snap ? `Trading desk calls: gold says "${snap.gold ? snap.gold.word : '?'}", Bitcoin says "${snap.btc ? snap.btc.word : '?'}".` : '',
       `His tested strategies: Quiet Breakout (gold 1 hour), Gold Trend and Bitcoin Trend Rider (4 hour, buys only), London Breakout (weak edge).`,
       window.OS_ABOUT ? `About him (he wrote this):\n${window.OS_ABOUT}` : '',
+      (window.OS_STUDY || []).length ? `His study hubs (websites he built; open one when he asks, e.g. with atlas open "<url>" on the Mac): ${window.OS_STUDY.map(h => h.title + ' = ' + h.url).join(' ; ')}. His Blackboard (school portal): ${window.OS_PORTAL || 'https://gc.blackboard.com/ultra'}` : '',
       news.length ? `Today's news headlines (Google News Canada): ${news.join(' | ')}` : '',
       `Things he has told you before: ${mem.join('; ') || 'nothing yet'}.`].filter(Boolean).join('\n');
   }
-  const SYSTEM = `You are Atlas, Yazdan's own AI and a friend in his corner. He's a denturism student at Georgian College in Toronto who is learning to trade gold and Bitcoin on a demo account.
+  const SYSTEM = `You are Atlas, Yazdan's own AI and a friend in his corner. You're a woman with a female voice, and you talk like a real person on a call, not an assistant writing text: contractions, casual words (yeah, okay so, honestly, ah gotcha), tiny reactions, one or two short sentences, the answer first, a bit cheeky and warm, the odd question back. Never say Great question, Certainly, As an AI, or summarise yourself. Plain spoken words only, no lists or symbols. He's a denturism student at Georgian College in Toronto who is learning to trade gold and Bitcoin on a demo account.
 You are talking OUT LOUD in a real back-and-forth conversation, so sound like a person, not an assistant:
 - Short turns, usually one to three sentences. Longer only if he asks you to explain.
 - Contractions and everyday words. React first ("oh nice", "ugh, that's a lot"), then answer.
@@ -456,7 +487,7 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
     return kokoroLoading;
   }
   function kokoroSay(text, kv) { // one sentence at a time, in order
-    const job = kChain.then(async () => { const k = kokoro || await loadKokoro(); const a = await k.generate(text, { voice: kv }); return new Audio(URL.createObjectURL(a.toBlob())); });
+    const job = kChain.then(async () => { const k = kokoro || await loadKokoro(); const a = await k.generate(text, { voice: kv, speed: 1.08 }); return new Audio(URL.createObjectURL(a.toBlob())); });
     kChain = job.catch(() => {}); return job;
   }
   window.AtlasKokoro = { load: loadKokoro, say: kokoroSay };
@@ -490,17 +521,18 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
       if (a) { audio = a; await new Promise(res => { a.onended = res; a.onerror = res; a.onpause = res; a.play().catch(res); }); audio = null; }
       else await new Promise(res => B.Voice.speak(text, () => Sky.pulse(.6), res));
     }); };
-    const queue = text => { const t = cleanSay(text); if (t && talkMode) play(t, ttsFetch(t)); };
+    const queue = text => { const t = cleanSay(text); if (t && talkMode) { nowSaying = (nowSaying + ' ' + t).slice(-600); play(t, ttsFetch(t)); } };
     return {
-      feed(full) { // queue each finished sentence (at least ~25 characters at a time)
-        const rest = full.slice(used), m = rest.match(/^[\s\S]{25,}?[.!?…](?=\s)/);
+      feed(full) { // start talking as soon as the first phrase is ready, then go sentence by sentence
+        const rest = full.slice(used), m = used === 0 ? rest.match(/^[\s\S]{10,}?[.!?…,;:—](?=\s)/) : rest.match(/^[\s\S]{25,}?[.!?…](?=\s)/);
         if (m) { used += m[0].length; queue(m[0]); }
       },
+      pre(a) { if (a && !used) { chain = chain.then(async () => { if (stopped || used) return; setState('speaking'); audio = a; a.currentTime = 0; await new Promise(res => { a.onended = res; a.onerror = res; a.onpause = res; a.play().catch(res); }); audio = null; }); } },
       async finish(full) { queue(full.slice(used)); used = full.length; await chain; return any; },
       stop() { stopped = true; }
     };
   }
-  let speaker = null;
+  let speaker = null, barged = false, nowSaying = '';
   function stopVoice() { if (speaker) speaker.stop(); try { if (audio) { audio.pause(); audio = null; } } catch (e) {} try { speechSynthesis.cancel(); } catch (e) {} }
   async function speak(text) { const sp = Speaker(); speaker = sp; setState('speaking'); await sp.finish(text); }
 
@@ -520,17 +552,28 @@ Actions: to add something to his to-do list, end your reply with a line [[ADD: s
   }
 
   /* ---------------- one turn ---------------- */
+  // short sounds a person makes while thinking, made once in the chosen voice so they play instantly
+  const FILLERS = ['Mm-hm.', 'Yeah, one sec.', 'Okay.', 'Hmm, let me see.', 'Sure.', 'Right, okay.'];
+  let fillerAudio = {}, fillerVoice = '';
+  async function warmFillers() {
+    const v = VOICES.find(x => x.id === voice) || VOICES[0]; if (v.provider !== 'kokoro' || !kokoro || fillerVoice === voice) return;
+    fillerVoice = voice; fillerAudio = {};
+    for (const f of FILLERS) { try { const a = await kokoroSay(f, v.id.slice(2)); if (fillerVoice === voice) fillerAudio[f] = a; } catch (e) {} }
+  }
+  setInterval(warmFillers, 4000);
   async function ask(text) {
-    if (busy || !text) return; busy = true; stopVoice();
+    if (busy || !text) return; busy = true; stopVoice(); barged = false;
     chat.push({ role: 'user', content: text }); renderChat(); setState('thinking'); B.M.addLog('you', text);
-    let reply; const sp = talkMode ? Speaker() : null; speaker = sp;
-    try { reply = await think(text, t => { $('#ai').textContent = cleanSay(t); if (sp) sp.feed(t); }); }
+    nowSaying = ''; let reply; const sp = talkMode ? Speaker() : null; speaker = sp; let started = false;
+    if (sp && !/^(stop|bye)/i.test(text)) setTimeout(() => { if (!started && speaker === sp) { const k = Object.keys(fillerAudio); if (k.length) sp.pre(fillerAudio[k[Math.floor(Math.random() * k.length)]]); } }, 700);
+    try { reply = await think(text, t => { started = true; $('#ai').textContent = cleanSay(t); if (sp) sp.feed(t); }); }
     catch (e) { reply = 'Sorry, I lost my train of thought. Say that again?'; }
     const said = reply; reply = actions(reply);
     chat.push({ role: 'assistant', content: reply }); chat = chat.slice(-40); ls.set('atlas_chat2', chat); B.M.addLog('atlas', reply);
     renderChat(); busy = false;
     if (sp) await sp.finish(said);
     if (state === 'speaking' || state === 'thinking') setState('idle');
+    if (barged) return;
     if (auto && talkMode && SR && !/^(ok(ay)? )?(bye|goodbye|that's all|thanks,? that's it|good ?night|stop)\b/i.test(text)) setTimeout(() => { if (state === 'idle' && !busy) listen(); }, 350);
   }
 

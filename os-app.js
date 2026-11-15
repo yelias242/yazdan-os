@@ -173,7 +173,15 @@
   }
 
   /* ---------------- school ---------------- */
+  const CLS = { hub: 'All classes', orofacial: 'Orofacial', dentures: 'Complete Dentures', intro: 'Intro to Denturism', materials: 'Dental Materials', anatomy: 'Anatomy' };
+  function renderHubs() {
+    const el = $('#hubs'); if (!el) return;
+    const portal = S.portal || window.OS_PORTAL || 'https://gc.blackboard.com/ultra';
+    el.innerHTML = `<a class="hub portal" href="${esc(portal)}" target="_blank" rel="noopener"><i>School portal</i><b>Blackboard</b><small>Courses, grades and announcements. Opens in its own window (Blackboard doesn't allow being shown inside other pages).</small></a>`
+      + (window.OS_STUDY || []).map(h => `<a class="hub" href="${esc(h.url)}" target="_blank" rel="noopener"><i>${esc(CLS[h.cls] || h.cls)}</i><b>${esc(h.title)}</b><small>${esc(h.what)}</small></a>`).join('');
+  }
   function renderSchool() {
+    renderHubs();
     const S0 = 7 * 60, S1 = 22 * 60, H = 420, y = m => (Math.max(S0, Math.min(S1, m)) - S0) / (S1 - S0) * H, z = B.tzNow();
     const sched = B.M.schedule(), days = [1, 2, 3, 4, 5];
     let html = '<div></div>' + days.map(d => `<div class="hdr ${d === z.wd ? 'today' : ''}">${B.DSHORT[d]}</div>`).join('');
@@ -183,7 +191,7 @@
     const st = B.M.tasks().filter(t => t.domain === 'school'), wkEnd = B.dateAdd(z.date, (7 - z.wd) % 7), nxEnd = B.dateAdd(wkEnd, 7);
     const G = [['Missed', st.filter(t => !t.done && t.due && t.due < z.date), 'late'], ['This week', st.filter(t => !t.done && t.due && t.due >= z.date && t.due <= wkEnd), ''], ['Next week', st.filter(t => !t.done && t.due && t.due > wkEnd && t.due <= nxEnd), ''], ['Later', st.filter(t => !t.done && (!t.due || t.due > nxEnd)), ''], ['Done', st.filter(t => t.done), '']];
     $('#schoolTasks').innerHTML = st.length ? G.filter(g => g[1].length).map(([h, L, cls]) => `<li class="sgroup ${cls}"><h3>${h} · ${L.length}</h3><ul class="tasks">${L.sort((a, b) => (a.due || '9').localeCompare(b.due || '9')).map(taskHTML).join('')}</ul></li>`).join('') : '<li class="muted small">No school tasks yet. Add one on Home or say "add task anatomy notes by Monday".</li>';
-    $('#portalNote').textContent = S.portal ? 'Your school portal opens inside the app.' : 'Add your Blackboard link in Settings and it opens right here.';
+    $('#portalNote').textContent = 'Georgian Blackboard opens in its own window. Your study hubs are below.';
   }
   let pomo = { left: 1500, run: false, work: true, t: null };
   function pomoTick() { const m = Math.floor(pomo.left / 60), s = pomo.left % 60; $('#pomoT').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`; }
@@ -251,6 +259,7 @@
     if (say) return ask(say.dataset.say);
     if (url) return openInside(url.dataset.url);
     if (go) { location.hash = go.dataset.go; return; }
+    if (app && app.dataset.app === 'portal') { window.open(S.portal || window.OS_PORTAL, '_blank', 'noopener'); return; }
     if (app) { const u = app.dataset.app === 'portal' ? S.portal : appURL(app.dataset.app); if (!u) { location.hash = 'settings'; $('#sMsg').textContent = 'Add the link first, then press Save.'; return; } return openInside(u, app.textContent.replace('Open ', '').trim()); }
     if (cl) return openInside(B.claudeURL(cl.dataset.claude), 'Claude');
     if (op) { const u = op.dataset.open; if (!u) { location.hash = 'settings'; $('#sMsg').textContent = `Add your ${op.dataset.name} link, then press Save.`; return; } return openInside(u, op.dataset.name); }

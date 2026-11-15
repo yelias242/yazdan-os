@@ -8,9 +8,9 @@
 <title>My OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&family=Big+Shoulders+Display:wght@200;300;400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="os.css?v=20261115b">
-<link rel="stylesheet" href="os-app.css?v=20261115b">
-<link rel="stylesheet" href="space-skin.css?v=20261115b">
+<link rel="stylesheet" href="os.css?v=20261115c">
+<link rel="stylesheet" href="os-app.css?v=20261115c">
+<link rel="stylesheet" href="space-skin.css?v=20261115c">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
@@ -100,10 +100,10 @@
   </section>
 
   <!-- ATLAS / TRADING (embedded pages load when opened) -->
-  <section class="view frameview" id="v-atlas" hidden><iframe title="Atlas" data-src="jarvis.html?v=20261115b" allow="microphone; autoplay"></iframe></section>
-  <section class="view frameview" id="v-trading" hidden><iframe title="Trading Desk" data-src="index.html?v=20261115b#gold" allow="microphone; clipboard-write"></iframe></section>
+  <section class="view frameview" id="v-atlas" hidden><iframe title="Atlas" data-src="jarvis.html?v=20261115c" allow="microphone; autoplay"></iframe></section>
+  <section class="view frameview" id="v-trading" hidden><iframe title="Trading Desk" data-src="index.html?v=20261115c#gold" allow="microphone; clipboard-write"></iframe></section>
 
-  <section class="view frameview" id="v-learn" hidden><iframe title="Learn" data-src="index.html?v=20261115b#learn" allow="microphone"></iframe></section>
+  <section class="view frameview" id="v-learn" hidden><iframe title="Learn" data-src="index.html?v=20261115c#learn" allow="microphone"></iframe></section>
 
   <!-- CHARTS -->
   <section class="view" id="v-charts" hidden>
@@ -133,6 +133,10 @@
         <div class="appbtns"><button class="btn small" data-app="portal">Open Blackboard</button><button class="btn small" data-claude="Make me a study plan for this week from my class schedule, and quiz me on the hardest topic.">Study plan with Claude</button></div>
       </article>
     </div>
+    <article class="glass card">
+      <div class="ch"><h2>Study Hubs</h2><span class="eyebrow">Your quizzes, flashcards and slides · tap to open</span></div>
+      <div class="hubs" id="hubs"></div>
+    </article>
     <article class="glass card">
       <div class="ch"><h2>Assignments</h2><span class="eyebrow">Missed · this week · next week</span></div>
       <ul class="tasks" id="schoolTasks"></ul>
@@ -197,11 +201,11 @@
   </section>
 </main>
 
-<script src="os-config.js?v=20261115b"></script>
-<script src="brain.js?v=20261115b"></script>
-<script src="data.js?v=20261115b"></script>
-<script src="orb.js?v=20261115b"></script>
-<script src="os-app.js?v=20261115b"></script>
-<script type="module" src="galaxy-bg.js?v=20261115b"></script>
+<script src="os-config.js?v=20261115c"></script>
+<script src="brain.js?v=20261115c"></script>
+<script src="data.js?v=20261115c"></script>
+<script src="orb.js?v=20261115c"></script>
+<script src="os-app.js?v=20261115c"></script>
+<script type="module" src="galaxy-bg.js?v=20261115c"></script>
 </body>
 </html>

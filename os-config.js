@@ -46,3 +46,6 @@ Builds websites and tools with AI (mainly Claude): a personal Study Hub with qui
 Wants to learn business, AI, programming, psychology, finance, marketing, communication and entrepreneurship. Long-term: create something meaningful, financial independence, help his family, and freedom over his time.
 Also practising trading gold and Bitcoin on a demo account, and makes stick-figure TikTok/Instagram videos.
 How to talk to him: explain things clearly without assuming he knows everything, but don't underestimate him; encourage understanding over copy-paste.`;
+
+// Yazdan's study hubs (they live in his Claude account, so they're always the latest version) and his school portal.
+window.OS_PORTAL = 'https://gc.blackboard.com/ultra';
